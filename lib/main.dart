@@ -99,7 +99,7 @@ class _PlaceholderScreen extends StatelessWidget {
             const Text(
               'Coming soon — build this screen next!',
               style: TextStyle(color: Colors.grey),
-            ),
+            ), // Comment added by Sidra
           ],
         ),
       ),
