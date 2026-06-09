@@ -1,0 +1,46 @@
+name: donatehub_android_studio
+description: "DonateHub - Lend a hand, change a life"
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  # ── UI ────────────────────────────────────────────────────────────────────
+  cupertino_icons: ^1.0.8
+  google_fonts: ^8.0.2
+
+  # ── Firebase (YOUR original versions — do NOT change these) ──────────────
+  firebase_core: ^4.4.0
+  firebase_auth: ^6.1.4
+  cloud_firestore: ^6.1.2
+
+  # ── Google Sign-In ────────────────────────────────────────────────────────
+  google_sign_in: ^6.2.1
+
+  # ── Image & Cloud ─────────────────────────────────────────────────────────
+  image_picker: ^1.0.7
+  cloudinary_public: ^0.23.1
+
+  # ── HTTP (for pay.php backend call) ──────────────────────────────────────
+  http: ^1.2.1
+
+  # ── WebView (for JazzCash payment — was outside block in your original!) ──
+  webview_flutter: ^4.0.0
+
+  # REMOVED: fluttertoast — incompatible with your Android SDK.
+  # All feedback uses ScaffoldMessenger SnackBar (no package needed).
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
