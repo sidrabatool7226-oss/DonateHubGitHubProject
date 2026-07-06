@@ -3,16 +3,17 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 class FirestoreService {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // ===============================
+  // ==========================================
   // GET CAMPAIGN NAMES
-  // ===============================
+  // ==========================================
   Future<List<String>> getCampaignNames() async {
     try {
       final snapshot = await _db.collection('campaigns').get();
 
       return snapshot.docs
-          .map((doc) => doc['name']?.toString() ?? '')
-          .where((name) => name.isNotEmpty)
+          .map((doc) => doc['name']?.toString())
+          .where((name) => name != null && name.isNotEmpty)
+          .cast<String>()
           .toList();
     } catch (e) {
       print('Error fetching campaigns: $e');
@@ -20,9 +21,9 @@ class FirestoreService {
     }
   }
 
-  // ===============================
-  // SAVE DONATION (FIXED)
-  // ===============================
+  // ==========================================
+  // SAVE DONATION (Resource Donation)
+  // ==========================================
   Future<Map<String, dynamic>> saveDonation({
     required String itemName,
     required String category,
@@ -31,10 +32,10 @@ class FirestoreService {
     required String campaignName,
     required String logisticsType,
     required String address,
-    required List<String> imageUrls,
+    List<String>? imageUrls,
   }) async {
     try {
-      await _db.collection('donations').add({
+      final docRef = await _db.collection('donations').add({
         'itemName': itemName,
         'category': category,
         'quantity': quantity,
@@ -42,22 +43,22 @@ class FirestoreService {
         'campaignName': campaignName,
         'logisticsType': logisticsType,
         'address': address,
-        'imageUrls': imageUrls,
+        'imageUrls': imageUrls ?? [],
         'status': 'pending',
-        'createdAt': FieldValue.serverTimestamp(),
+        'timestamp': FieldValue.serverTimestamp(),
       });
 
-      return {
-        'success': true,
-        'message': 'Donation saved successfully'
-      };
+      return {'success': true, 'id': docRef.id};
     } catch (e) {
       print('Error saving donation: $e');
-
-      return {
-        'success': false,
-        'message': 'Failed to save donation'
-      };
+      return {'success': false, 'error': e.toString()};
     }
+  }
+
+  // ==========================================
+  // GET ALL CAMPAIGNS (full data)
+  // ==========================================
+  Stream<QuerySnapshot> getCampaignsStream() {
+    return _db.collection('campaigns').snapshots();
   }
 }

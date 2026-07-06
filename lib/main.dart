@@ -14,15 +14,26 @@ import 'screens/auth/signup_screen.dart';
 
 // ✅ STEP 1: Yahan apna Admin Dashboard import karein
 import 'screens/admin/admin_dashboard.dart';
+
+// ✅ Manager Dashboard import
+import 'screens/Manager/manager_dashboard.dart';
+
+// ✅ Volunteer form import
+import 'screens/volunteer/volunteer_details_form.dart';
+
+// ✅ Volunteer dashboard import (NEW)
+import 'screens/volunteer/volunteer_home_screen.dart';
+
+// ✅ Volunteer pending-approval screen import (NEW)
+import 'screens/volunteer/pending_approval_screen.dart';
+
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Lock to portrait mode only
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
 
-  // Initialize Firebase
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
@@ -47,7 +58,6 @@ class DonateHubApp extends StatelessWidget {
         fontFamily: 'Roboto',
       ),
 
-      // App starts at splash screen
       initialRoute: '/',
 
       routes: {
@@ -56,53 +66,22 @@ class DonateHubApp extends StatelessWidget {
         '/signup': (context) => const SignupScreen(),
         '/donate_items': (context) => const CategorySelectionScreen(),
 
-        // ✅ FIXED: Asli Admin Dashboard screen yahan connect ho gayi
         '/admin_dashboard': (context) => const AdminDashboard(),
 
         '/donate_funds': (context) => const DonateFundsScreen(),
 
-        // Donor dashboard
         '/donor_dashboard': (context) => HomeScreen(),
 
-        // Volunteers placeholders (Aap inhein baad mein real screens se replace kar sakti hain)
-        '/volunteer_form': (context) => const _PlaceholderScreen(title: 'Volunteer Form'),
-        '/volunteer_dashboard': (context) => const _PlaceholderScreen(title: 'Volunteer Dashboard'),
+        '/manager_dashboard': (context) => const ManagerDashboard(),
+
+        '/volunteer_form': (context) => const VolunteerDetailsForm(),
+
+        // 👇 FIXED: ab placeholder ki jaga real dashboard khulega
+        '/volunteer_dashboard': (context) => const VolunteerHomeScreen(),
+
+        // 👇 NEW: approval ka wait wali screen
+        '/pending': (context) => PendingApprovalScreen(),
       },
-    );
-  }
-}
-
-// ── Temporary placeholder screen ─────────────────────────────
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: const Color(0xFF2D6A4F),
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.construction, size: 60, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(
-              title,
-              style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 8),
-            const Text(
-              'Coming soon — build this screen next!',
-              style: TextStyle(color: Colors.grey),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }

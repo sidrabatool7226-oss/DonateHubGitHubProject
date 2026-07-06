@@ -31,6 +31,7 @@ dependencies:
 
   # ── WebView (for JazzCash payment — was outside block in your original!) ──
   webview_flutter: ^4.0.0
+  url_launcher: ^6.3.1
 
   # REMOVED: fluttertoast — incompatible with your Android SDK.
   # All feedback uses ScaffoldMessenger SnackBar (no package needed).
