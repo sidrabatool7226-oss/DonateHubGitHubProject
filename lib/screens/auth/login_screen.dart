@@ -58,6 +58,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _navigateAfterAuth(
         role: result['role'],
         isProfileComplete: result['isProfileComplete'],
+        status: result['status'],
       );
     } else {
       _showErrorSnackbar(result['message']);
@@ -74,6 +75,7 @@ class _LoginScreenState extends State<LoginScreen> {
       _navigateAfterAuth(
         role: result['role'],
         isProfileComplete: result['isProfileComplete'],
+        status: result['status'],
       );
     } else {
       _showErrorSnackbar(result['message']);
@@ -89,24 +91,30 @@ class _LoginScreenState extends State<LoginScreen> {
     );
   }
 
+  // --- MODIFIED: ab manager role aur status ka check hai ---
   void _navigateAfterAuth({
     required String role,
     required bool isProfileComplete,
+    String? status,
   }) {
     if (role == 'admin') {
       // Direct Navigation for Admin
       Navigator.pushReplacementNamed(context, '/admin_dashboard');
-
-      // If '/admin_dashboard' route is not defined in main.dart, use this:
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AdminDashboard()));
-
     } else if (role == 'donor') {
       Navigator.pushReplacementNamed(context, '/donor_dashboard');
+    } else if (role == 'manager') {
+      // 👈 NEW: Manager Dashboard
+      Navigator.pushReplacementNamed(context, '/manager_dashboard');
     } else if (role == 'volunteer') {
       if (!isProfileComplete) {
+        // Form abhi tak submit nahi hua
         Navigator.pushReplacementNamed(context, '/volunteer_form');
-      } else {
+      } else if (status == 'approved') {
+        // Manager ne approve kar diya — dashboard khulega
         Navigator.pushReplacementNamed(context, '/volunteer_dashboard');
+      } else {
+        // Form submit ho gaya lekin abhi tak approved nahi (status == 'pending')
+        Navigator.pushReplacementNamed(context, '/pending');
       }
     }
   }
