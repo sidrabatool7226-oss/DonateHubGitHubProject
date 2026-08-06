@@ -1,17 +1,24 @@
-// ============================================================
-// FILE: lib/screens/auth/splash_screen.dart
-//
-// DESIGN MATCH:
-//  - Full screen background image (hands holding heart)
-//  - Circular logo (Little Smiles Orphan Home) in center-top
-//  - "DonateHub" text below logo
-//  - Dark green "Continue to App →" button at bottom
-// ============================================================
-
 import 'package:flutter/material.dart';
 
-class SplashScreen extends StatelessWidget {
+class SplashScreen extends StatefulWidget {
   const SplashScreen({super.key});
+
+  @override
+  State<SplashScreen> createState() => _SplashScreenState();
+}
+
+class _SplashScreenState extends State<SplashScreen> {
+
+  @override
+  void initState() {
+    super.initState();
+    // Auto navigate after 2 seconds
+    Future.delayed(const Duration(seconds: 2), () {
+      if (mounted) {
+        Navigator.pushReplacementNamed(context, '/login');
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -19,15 +26,10 @@ class SplashScreen extends StatelessWidget {
       body: Stack(
         children: [
           // ── Layer 1: Full screen background image ─────────────────────
-          // This is the hands-holding-heart photo in your design.
-          // Make sure you add it at: assets/images/background.png
-          // If you don't have a separate background image, remove this
-          // and the teal color from Layer 2 will show instead.
           Positioned.fill(
             child: Image.asset(
               'assets/images/background.png',
               fit: BoxFit.cover,
-              // If background.png is missing, show a teal color instead
               errorBuilder: (context, error, stackTrace) {
                 return Container(
                   decoration: const BoxDecoration(
@@ -35,8 +37,8 @@ class SplashScreen extends StatelessWidget {
                       begin: Alignment.topCenter,
                       end: Alignment.bottomCenter,
                       colors: [
-                        Color(0xFF5BA8A0), // Teal top (matches your design)
-                        Color(0xFF4A9E95), // Slightly darker teal bottom
+                        Color(0xFF5BA8A0),
+                        Color(0xFF4A9E95),
                       ],
                     ),
                   ),
@@ -45,7 +47,7 @@ class SplashScreen extends StatelessWidget {
             ),
           ),
 
-          // ── Layer 2: Light teal overlay at top (to match your design) ─
+          // ── Layer 2: Light teal overlay at top ─────────────────────────
           Positioned(
             top: 0,
             left: 0,
@@ -57,7 +59,7 @@ class SplashScreen extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xCC5BA8A0), // Semi-transparent teal
+                    Color(0xCC5BA8A0),
                     Colors.transparent,
                   ],
                 ),
@@ -72,7 +74,6 @@ class SplashScreen extends StatelessWidget {
               height: double.infinity,
               child: Column(
                 children: [
-                  // ── Top spacer ─────────────────────────────────────────
                   const SizedBox(height: 48),
 
                   // ── Circular Logo ──────────────────────────────────────
@@ -83,7 +84,7 @@ class SplashScreen extends StatelessWidget {
                       shape: BoxShape.circle,
                       color: Colors.white,
                       border: Border.all(
-                        color: const Color(0xFF3A8A6E), // Dark green border
+                        color: const Color(0xFF3A8A6E),
                         width: 3,
                       ),
                       boxShadow: [
@@ -98,7 +99,6 @@ class SplashScreen extends StatelessWidget {
                       child: Image.asset(
                         'assets/images/logo.png',
                         fit: BoxFit.cover,
-                        // Fallback if logo is missing
                         errorBuilder: (context, error, stackTrace) {
                           return const Icon(
                             Icons.volunteer_activism,
@@ -112,21 +112,20 @@ class SplashScreen extends StatelessWidget {
 
                   const SizedBox(height: 20),
 
-                  // ── "DonateHub" text ───────────────────────────────────
+                  // ── DonateHub text ─────────────────────────────────────
                   const Text(
                     'DonateHub',
                     style: TextStyle(
                       fontSize: 32,
                       fontWeight: FontWeight.bold,
-                      color: Color(0xFF1A3A2A), // Dark green text
+                      color: Color(0xFF1A3A2A),
                       letterSpacing: 1.2,
                     ),
                   ),
 
-                  // ── Spacer pushes button to bottom ─────────────────────
                   const Spacer(),
 
-                  // ── "Continue to App" Button ───────────────────────────
+                  // ── Continue button (backup — auto bhi hoga) ───────────
                   Padding(
                     padding: const EdgeInsets.symmetric(horizontal: 60),
                     child: SizedBox(
@@ -134,12 +133,10 @@ class SplashScreen extends StatelessWidget {
                       height: 50,
                       child: ElevatedButton(
                         onPressed: () {
-                          // Go to Login Screen
                           Navigator.pushReplacementNamed(context, '/login');
                         },
                         style: ElevatedButton.styleFrom(
-                          backgroundColor:
-                          const Color(0xFF2D6A4F), // Dark green button
+                          backgroundColor: const Color(0xFF2D6A4F),
                           foregroundColor: Colors.white,
                           shape: RoundedRectangleBorder(
                             borderRadius: BorderRadius.circular(30),

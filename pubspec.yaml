@@ -34,12 +34,19 @@ dependencies:
 
   # REMOVED: fluttertoast — incompatible with your Android SDK.
   # All feedback uses ScaffoldMessenger SnackBar (no package needed).
+  # NEW — GetX State Management
+  get: ^4.6.6
 
+  # NEW — Firebase Cloud Messaging (Notifications)
+  firebase_messaging: ^16.2.0
+
+  # NEW — Local Notifications (phone pe notification dikhane ke liye)
+  flutter_local_notifications: ^18.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter
   flutter_lints: ^6.0.0
-
+  fl_chart: ^0.68.0
 flutter:
   uses-material-design: true
   assets:

@@ -39,11 +39,6 @@ class _LoginScreenState extends State<LoginScreen> {
 
     // 1. Check for Pre-created Admin Credentials first
     // Note: Replace 'your_password' with the actual password you set on mobile
-    if (email == "donatehubadmin@gmail.com" && password == "197910Mugh@al131201") {
-      setState(() => _isLoading = false);
-      _navigateAfterAuth(role: 'admin', isProfileComplete: true);
-      return; // Stop here, don't call Firebase
-    }
 
     // 2. If not admin, proceed with normal Firebase Login
     final result = await _authService.loginUser(
@@ -69,7 +64,6 @@ class _LoginScreenState extends State<LoginScreen> {
     final result = await _authService.signInWithGoogle(role: 'donor');
     setState(() => _isLoading = false);
     if (!mounted) return;
-
     if (result['success'] == true) {
       _navigateAfterAuth(
         role: result['role'],
@@ -92,14 +86,12 @@ class _LoginScreenState extends State<LoginScreen> {
   void _navigateAfterAuth({
     required String role,
     required bool isProfileComplete,
-  }) {
+  })
+  {
     if (role == 'admin') {
-      // Direct Navigation for Admin
       Navigator.pushReplacementNamed(context, '/admin_dashboard');
-
-      // If '/admin_dashboard' route is not defined in main.dart, use this:
-      // Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => const AdminDashboard()));
-
+    } else if (role == 'manager') {                              // ← NEW
+      Navigator.pushReplacementNamed(context, '/manager_dashboard'); // ← NEW
     } else if (role == 'donor') {
       Navigator.pushReplacementNamed(context, '/donor_dashboard');
     } else if (role == 'volunteer') {
