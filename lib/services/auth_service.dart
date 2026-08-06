@@ -14,8 +14,8 @@ class AuthService {
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
   // ── Admin credentials (hardcoded — only admin can login, not signup) ────
-  static const String adminEmail = 'admin@donatehub.com';
-  static const String adminPassword = 'Admin@123';
+  static const String adminEmail = 'donatehubadmin@gmail.com';
+  static const String adminPassword = 'hastiapnihababkisihy221025';
 
   // ── Get currently logged-in user ────────────────────────────────────────
   User? get currentUser => _auth.currentUser;
@@ -161,6 +161,7 @@ class AuthService {
   }) async {
     try {
       // Step 1: Open Google account picker
+      await _googleSignIn.signOut();
       final GoogleSignInAccount? googleUser = await _googleSignIn.signIn();
 
       if (googleUser == null) {
