@@ -1,14 +1,27 @@
 // ============================================================
 // FILE: lib/screens/donor/donate_funds_screen.dart
+//
+// FIX:
+// - Receipt selection no longer crashes/restarts the app.
+// - Removed ImageCropper from the receipt selection flow.
+// - Selected gallery image is used directly.
+// - OCR still runs immediately after image selection.
+// - Cloudinary upload + Firestore donation flow unchanged.
+// - UI unchanged.
 // ============================================================
 
 import 'dart:io';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
-import 'package:firebase_auth/firebase_auth.dart';
+import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
-import '../../services/jazzcash_service.dart';
-import '../../services/donation_service.dart';
-import 'jazzcash_webview_screen.dart';
+
+import '../../controllers/donor_campaign_controller.dart';
+import '../../models/payment_account.dart';
+import '../../services/cloudinary_service.dart';
+import '../../services/ocr_service.dart';
+import '../../services/receipt_parser.dart';
+import '../../widgets/payment_account_card.dart';
 
 class DonateFundsScreen extends StatefulWidget {
   const DonateFundsScreen({super.key});
@@ -18,189 +31,364 @@ class DonateFundsScreen extends StatefulWidget {
 }
 
 class _DonateFundsScreenState extends State<DonateFundsScreen> {
-  // ── Services ─────────────────────────────────────────────────────────────
-  final _jcService  = JazzCashService();
-  final _donService = DonationService();
-  final _picker     = ImagePicker();
-
-  // ── Brand colors ──────────────────────────────────────────────────────────
-  static const Color _green     = Color(0xFF1B6B3A);
+  static const Color _green = Color(0xFF1B6B3A);
   static const Color _greenDark = Color(0xFF145230);
-  static const Color _teal      = Color(0xFF00BFA5);
-  static const Color _bg        = Color(0xFFF2F4F8);
+  static const Color _teal = Color(0xFF00BFA5);
+  static const Color _bg = Color(0xFFF2F4F8);
 
-  // ── State ─────────────────────────────────────────────────────────────────
-  String? _selectedCause;
+  late final DonorCampaignController _controller;
+
+  final ImagePicker _picker = ImagePicker();
+  final CloudinaryService _cloudinary = CloudinaryService();
+  final OcrService _ocr = OcrService();
+
+  final _customCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
+  final _cnicCtrl = TextEditingController();
+  final _txnIdCtrl = TextEditingController();
+
+  String? _selectedCampaignId;
+  String? _selectedCampaignName;
   double? _selectedPreset;
-  final _customCtrl  = TextEditingController();
-  String _method     = 'jazzcash'; // 'jazzcash' | 'manual'
-  final _txnIdCtrl   = TextEditingController();
-  File?  _screenshot;
-  bool   _processing = false;
+  String? _selectedPaymentMethod;
 
-  // ── Causes list ───────────────────────────────────────────────────────────
-  final List<Map<String, dynamic>> _causes = [
-    {
-      'name': 'Educate a Child',
-      'icon': Icons.school_rounded,
-      'grad': [Color(0xFF1565C0), Color(0xFF42A5F5)],
-    },
-    {
-      'name': 'Health Fund',
-      'icon': Icons.favorite_rounded,
-      'grad': [Color(0xFFC62828), Color(0xFFEF9A9A)],
-    },
-    {
-      'name': 'Food Drive',
-      'icon': Icons.restaurant_rounded,
-      'grad': [Color(0xFFE65100), Color(0xFFFFCC80)],
-    },
-    {
-      'name': 'Shelter Support',
-      'icon': Icons.home_rounded,
-      'grad': [Color(0xFF6A1B9A), Color(0xFFCE93D8)],
-    },
-    {
-      'name': 'Green Earth',
-      'icon': Icons.eco_rounded,
-      'grad': [Color(0xFF2E7D32), Color(0xFFA5D6A7)],
-    },
-    {
-      'name': 'Others',
-      'icon': Icons.volunteer_activism_rounded,
-      'grad': [Color(0xFF37474F), Color(0xFFB0BEC5)],
-    },
-  ];
+  File? _receiptFile;
 
-  // ── Preset amounts ────────────────────────────────────────────────────────
+  bool _isScanning = false;
+  bool _isSubmitting = false;
+
+  ReceiptParseResult? _ocrResult;
+  bool _ocrRan = false;
+
   final List<int> _presets = [500, 1000, 5000, 10000, 50000];
+
+  @override
+  void initState() {
+    super.initState();
+
+    _controller = Get.isRegistered<DonorCampaignController>()
+        ? Get.find<DonorCampaignController>()
+        : Get.put(DonorCampaignController());
+  }
 
   @override
   void dispose() {
     _customCtrl.dispose();
+    _phoneCtrl.dispose();
+    _cnicCtrl.dispose();
     _txnIdCtrl.dispose();
+    _ocr.dispose();
+
     super.dispose();
   }
 
-  // ── Active amount (custom overrides preset) ───────────────────────────────
+  // ==========================================================================
+  // FINAL AMOUNT
+  // ==========================================================================
+
   double? get _finalAmount {
     if (_customCtrl.text.trim().isNotEmpty) {
       return double.tryParse(_customCtrl.text.trim());
     }
+
     return _selectedPreset;
   }
 
-  // ── Generate unique transaction ref ──────────────────────────────────────
-  String _makeTxnRef() {
-    final uid = FirebaseAuth.instance.currentUser?.uid ?? 'U000';
-    final ts  = DateTime.now().millisecondsSinceEpoch.toString();
-    final raw = 'T${uid.substring(0, uid.length.clamp(0, 4))}$ts';
-    return raw.substring(0, raw.length.clamp(0, 20));
+  // ==========================================================================
+  // PICK RECEIPT
+  //
+  // IMPORTANT:
+  // ImageCropper was removed from this flow because it can cause an Android
+  // Activity/process restart if its native configuration is not correct.
+  //
+  // The selected image is now used directly.
+  // ==========================================================================
+
+  Future<void> _pickReceipt() async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 90,
+      );
+
+      if (picked == null) {
+        return;
+      }
+
+      final File file = File(picked.path);
+
+      if (!await file.exists()) {
+        _snack(
+          'Selected image could not be accessed. Please try again.',
+          isError: true,
+        );
+        return;
+      }
+
+      if (!mounted) return;
+
+      setState(() {
+        _receiptFile = file;
+        _ocrRan = false;
+        _ocrResult = null;
+      });
+
+      // Run OCR after image has been successfully selected.
+      await _runOcr(file);
+    } catch (e) {
+      debugPrint('Receipt selection error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _isScanning = false;
+      });
+
+      _snack(
+        'Could not select the receipt. Please try again.',
+        isError: true,
+      );
+    }
   }
 
   // ==========================================================================
-  // VALIDATE FORM
+  // OCR
   // ==========================================================================
+
+  Future<void> _runOcr(File file) async {
+    if (!mounted) return;
+
+    setState(() {
+      _isScanning = true;
+      _ocrRan = false;
+      _ocrResult = null;
+    });
+
+    try {
+      final String? text = await _ocr.extractTextFromFile(file);
+
+      if (!mounted) return;
+
+      if (text != null && text.trim().isNotEmpty) {
+        final ReceiptParseResult result = ReceiptParser.parse(text);
+
+        setState(() {
+          _ocrResult = result;
+          _ocrRan = true;
+
+          // If OCR found an amount and user has not manually entered one,
+          // put the detected amount into the editable amount field.
+          if (result.amount != null &&
+              _customCtrl.text.trim().isEmpty) {
+            _customCtrl.text = result.amount!.toStringAsFixed(0);
+            _selectedPreset = null;
+          }
+
+          // OCR detected transaction ID.
+          if (result.transactionId != null &&
+              result.transactionId!.trim().isNotEmpty) {
+            _txnIdCtrl.text = result.transactionId!;
+          }
+
+          // OCR detected payment method.
+          if (result.paymentMethod != null &&
+              _selectedPaymentMethod == null) {
+            _selectedPaymentMethod = result.paymentMethod;
+          }
+        });
+      } else {
+        setState(() {
+          _ocrRan = true;
+          _ocrResult = null;
+        });
+      }
+    } catch (e) {
+      debugPrint('Receipt OCR error: $e');
+
+      if (!mounted) return;
+
+      setState(() {
+        _ocrRan = true;
+        _ocrResult = null;
+      });
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isScanning = false;
+        });
+      }
+    }
+  }
+
+  // ==========================================================================
+  // VALIDATION
+  // ==========================================================================
+
   String? _validate() {
-    if (_selectedCause == null) {
-      return 'Please select a cause to donate to';
-    }
-    final amt = _finalAmount;
+    final double? amt = _finalAmount;
+
     if (amt == null || amt < 10) {
-      return 'Minimum donation amount is PKR 10';
+      return 'Minimum donation amount is Rs. 10';
     }
+
     if (amt > 500000) {
-      return 'Maximum single donation is PKR 500,000';
+      return 'Maximum single donation is Rs. 500,000';
     }
-    if (_method == 'manual' && _txnIdCtrl.text.trim().isEmpty) {
-      return 'Please enter your Transaction ID';
+
+    if (_selectedPaymentMethod == null) {
+      return 'Please select a payment method';
     }
-    return null; // valid
+
+    if (_phoneCtrl.text.trim().isEmpty) {
+      return 'Please enter your phone number';
+    }
+
+    if (_cnicCtrl.text.trim().isEmpty) {
+      return 'Please enter your CNIC number';
+    }
+
+    if (_receiptFile == null) {
+      return 'Please upload your payment receipt';
+    }
+
+    return null;
   }
 
   // ==========================================================================
-  // SUBMIT — JazzCash or Manual
+  // SUBMIT DONATION
   // ==========================================================================
+
   Future<void> _submit() async {
-    final err = _validate();
-    if (err != null) {
-      _snack(err, isError: true);
+    final String? error = _validate();
+
+    if (error != null) {
+      _snack(error, isError: true);
       return;
     }
 
-    setState(() => _processing = true);
-
-    if (_method == 'jazzcash') {
-      await _doJazzCash();
-    } else {
-      await _doManual();
+    if (_receiptFile == null) {
+      _snack(
+        'Please upload your payment receipt',
+        isError: true,
+      );
+      return;
     }
 
-    if (mounted) setState(() => _processing = false);
+    if (!mounted) return;
+
+    setState(() {
+      _isSubmitting = true;
+    });
+
+    try {
+      // ------------------------------------------------------------
+      // Upload receipt to Cloudinary
+      // ------------------------------------------------------------
+
+      final String? proofUrl =
+      await _cloudinary.uploadImage(_receiptFile!);
+
+      if (proofUrl == null || proofUrl.trim().isEmpty) {
+        if (mounted) {
+          _snack(
+            'Screenshot upload failed. Please check your connection and try again.',
+            isError: true,
+          );
+
+          setState(() {
+            _isSubmitting = false;
+          });
+        }
+
+        return;
+      }
+
+      // ------------------------------------------------------------
+      // Pass confirmed amount/payment method to controller
+      // ------------------------------------------------------------
+
+      _controller.amountController.text =
+          _finalAmount!.toStringAsFixed(0);
+
+      _controller.selectedPaymentMethod.value =
+      _selectedPaymentMethod!;
+
+      // ------------------------------------------------------------
+      // Submit donation
+      // ------------------------------------------------------------
+
+      final bool ok = await _controller.donateToCampaign(
+        campaignId: _selectedCampaignId,
+        campaignName: _selectedCampaignName,
+        paymentProofUrl: proofUrl,
+        transactionId: _txnIdCtrl.text.trim(),
+        ocrAmount: _ocrResult?.amount,
+        ocrTransactionId: _ocrResult?.transactionId,
+        ocrPaymentMethod: _ocrResult?.paymentMethod,
+        ocrPaymentDate: _ocrResult?.paymentDate,
+        ocrProcessed: _ocrRan,
+        donorPhone: _phoneCtrl.text.trim(),
+        donorCnic: _cnicCtrl.text.trim(),
+      );
+
+      if (!mounted) return;
+
+      if (ok) {
+        _showSuccessDialog();
+      }
+    } catch (e) {
+      debugPrint('Donation submission error: $e');
+
+      if (mounted) {
+        _snack(
+          'Something went wrong. Please try again.',
+          isError: true,
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isSubmitting = false;
+        });
+      }
+    }
   }
 
-  // ── JazzCash flow ─────────────────────────────────────────────────────────
-  Future<void> _doJazzCash() async {
-    final url = JazzCashService.getPaymentUrl(
-      amount: _finalAmount!,
-    );
+  // ==========================================================================
+  // SNACKBAR
+  // ==========================================================================
 
-    Navigator.push(
-      context,
-      MaterialPageRoute(
-        builder: (_) => JazzCashWebViewScreen(url: url),
+  void _snack(
+      String msg, {
+        bool isError = false,
+      }) {
+    if (!mounted) return;
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg),
+        backgroundColor: isError ? Colors.red[700] : _green,
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+        margin: const EdgeInsets.all(16),
       ),
     );
   }
 
-  // ── Manual payment flow ───────────────────────────────────────────────────
-  Future<void> _doManual() async {
-    String screenshotUrl = '';
+  // ==========================================================================
+  // SUCCESS DIALOG
+  // ==========================================================================
 
-    if (_screenshot != null) {
-      _snack('Uploading screenshot...');
-      final url = await _donService.uploadScreenshot(_screenshot!);
-      screenshotUrl = url ?? '';
-    }
-
-    final ok = await _donService.saveManualDonation(
-      cause:         _selectedCause!,
-      amount:        _finalAmount!,
-      transactionId: _txnIdCtrl.text.trim(),
-      screenshotUrl: screenshotUrl,
-    );
-
-    if (!mounted) return;
-
-    if (ok) {
-      _showManualSuccessDialog();
-    } else {
-      _snack('Failed to save donation. Please try again.', isError: true);
-    }
-  }
-
-  // ── SnackBar helper ────────────────────────────────────────────────────────
-  void _snack(String msg, {bool isError = false}) {
-    if (!mounted) return;
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-      content: Text(msg),
-      backgroundColor: isError ? Colors.red[700] : _green,
-      behavior: SnackBarBehavior.floating,
-      shape:
-      RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-      margin: const EdgeInsets.all(16),
-      duration: Duration(seconds: isError ? 3 : 2),
-    ));
-  }
-
-  // ── Manual donation success dialog ────────────────────────────────────────
-  void _showManualSuccessDialog() {
+  void _showSuccessDialog() {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (_) => Dialog(
         shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(24)),
+          borderRadius: BorderRadius.circular(24),
+        ),
         child: Padding(
           padding: const EdgeInsets.all(28),
           child: Column(
@@ -213,40 +401,54 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
                   shape: BoxShape.circle,
                   color: _teal.withOpacity(0.12),
                 ),
-                child: const Icon(Icons.hourglass_top_rounded,
-                    size: 44, color: Color(0xFF00BFA5)),
+                child: const Icon(
+                  Icons.hourglass_top_rounded,
+                  size: 44,
+                  color: _teal,
+                ),
               ),
               const SizedBox(height: 16),
               const Text(
                 'Donation Submitted!',
                 style: TextStyle(
-                    fontSize: 20,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A)),
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               const SizedBox(height: 10),
               const Text(
-                'Your manual donation is pending\nadmin verification (within 24 hours).',
+                'Your donation is pending review.\n'
+                    'You will be notified once verified.',
                 textAlign: TextAlign.center,
                 style: TextStyle(
-                    color: Colors.grey, fontSize: 13, height: 1.5),
+                  color: Colors.grey,
+                  fontSize: 13,
+                  height: 1.5,
+                ),
               ),
               const SizedBox(height: 22),
               SizedBox(
                 width: double.infinity,
                 height: 46,
                 child: ElevatedButton(
-                  onPressed: () => Navigator.of(context)
-                      .popUntil((r) => r.isFirst),
+                  onPressed: () {
+                    Navigator.of(context).popUntil(
+                          (route) => route.isFirst,
+                    );
+                  },
                   style: ElevatedButton.styleFrom(
                     backgroundColor: _green,
                     shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(12)),
+                      borderRadius: BorderRadius.circular(12),
+                    ),
                   ),
-                  child: const Text('Back to Home',
-                      style: TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w600)),
+                  child: const Text(
+                    'Back to Home',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
                 ),
               ),
             ],
@@ -259,6 +461,7 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
   // ==========================================================================
   // BUILD
   // ==========================================================================
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -266,75 +469,58 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
       body: CustomScrollView(
         physics: const BouncingScrollPhysics(),
         slivers: [
-          // ── Gradient SliverAppBar ─────────────────────────────────────
           SliverAppBar(
-            expandedHeight: 190,
+            expandedHeight: 150,
             pinned: true,
-            stretch: true,
             backgroundColor: _greenDark,
             leading: IconButton(
-              icon: const Icon(Icons.arrow_back_ios_new_rounded,
-                  color: Colors.white, size: 20),
+              icon: const Icon(
+                Icons.arrow_back_ios_new_rounded,
+                color: Colors.white,
+                size: 20,
+              ),
               onPressed: () => Navigator.pop(context),
             ),
             title: const Text(
               'Donate Funds',
               style: TextStyle(
-                  color: Colors.white,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 18),
+                color: Colors.white,
+                fontWeight: FontWeight.bold,
+                fontSize: 18,
+              ),
             ),
             flexibleSpace: FlexibleSpaceBar(
               background: Container(
-                decoration: BoxDecoration(
+                decoration: const BoxDecoration(
                   gradient: LinearGradient(
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
-                    colors: [_greenDark, _teal],
+                    colors: [
+                      _greenDark,
+                      _teal,
+                    ],
                   ),
                 ),
                 child: SafeArea(
                   child: Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 56, 20, 20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisAlignment: MainAxisAlignment.end,
-                      children: [
-                        const Text(
-                          'You are donating',
-                          style: TextStyle(
-                              color: Colors.white70, fontSize: 13),
+                    padding: const EdgeInsets.fromLTRB(
+                      20,
+                      56,
+                      20,
+                      16,
+                    ),
+                    child: Align(
+                      alignment: Alignment.bottomLeft,
+                      child: Text(
+                        _finalAmount != null
+                            ? 'Rs. ${_finalAmount!.toStringAsFixed(0)}'
+                            : 'Select Amount Below ↓',
+                        style: const TextStyle(
+                          color: Colors.white,
+                          fontSize: 26,
+                          fontWeight: FontWeight.w800,
                         ),
-                        const SizedBox(height: 4),
-                        // Live amount preview — updates as user selects
-                        AnimatedSwitcher(
-                          duration: const Duration(milliseconds: 300),
-                          transitionBuilder: (child, anim) =>
-                              FadeTransition(
-                                  opacity: anim, child: child),
-                          child: Text(
-                            _finalAmount != null
-                                ? 'PKR ${_finalAmount!.toStringAsFixed(0)}'
-                                : 'Select Amount Below ↓',
-                            key: ValueKey(_finalAmount),
-                            style: const TextStyle(
-                              color: Colors.white,
-                              fontSize: 28,
-                              fontWeight: FontWeight.w800,
-                              letterSpacing: -0.5,
-                            ),
-                          ),
-                        ),
-                        if (_selectedCause != null)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 4),
-                            child: Text(
-                              'for $_selectedCause',
-                              style: const TextStyle(
-                                  color: Colors.white70, fontSize: 13),
-                            ),
-                          ),
-                      ],
+                      ),
                     ),
                   ),
                 ),
@@ -342,38 +528,68 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
             ),
           ),
 
-          // ── Scrollable body ───────────────────────────────────────────
           SliverToBoxAdapter(
             child: Padding(
-              padding: const EdgeInsets.fromLTRB(16, 20, 16, 120),
+              padding: const EdgeInsets.fromLTRB(
+                16,
+                20,
+                16,
+                120,
+              ),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // 1. Causes
-                  _sectionLabel('Select a Cause'),
+                  _sectionLabel('Select Campaign (Optional)'),
                   const SizedBox(height: 12),
-                  _buildCauseGrid(),
+                  _buildCampaignSelector(),
 
                   const SizedBox(height: 24),
 
-                  // 2. Amount
                   _sectionLabel('Select an Amount'),
                   const SizedBox(height: 12),
                   _buildAmountChips(),
+
                   const SizedBox(height: 12),
                   _buildCustomAmountField(),
 
                   const SizedBox(height: 24),
 
-                  // 3. Payment Method
+                  _sectionLabel('Your Details'),
+                  const SizedBox(height: 12),
+                  _buildDonorDetailsFields(),
+
+                  const SizedBox(height: 24),
+
                   _sectionLabel('Payment Method'),
                   const SizedBox(height: 12),
-                  _buildPaymentCards(),
 
-                  // 4. Manual fields (only when manual is selected)
-                  if (_method == 'manual') ...[
-                    const SizedBox(height: 20),
-                    _buildManualFields(),
+                  PaymentMethodSelector(
+                    selectedMethod: _selectedPaymentMethod,
+                    onSelect: (method) {
+                      setState(() {
+                        _selectedPaymentMethod = method;
+                      });
+                    },
+                  ),
+
+                  if (_selectedPaymentMethod != null) ...[
+                    const SizedBox(height: 8),
+                    PaymentAccountDetailsCard(
+                      account: PaymentAccounts.byMethod(
+                        _selectedPaymentMethod!,
+                      )!,
+                    ),
+                  ],
+
+                  const SizedBox(height: 24),
+
+                  _sectionLabel('Upload Payment Receipt'),
+                  const SizedBox(height: 12),
+                  _buildReceiptSection(),
+
+                  if (_ocrRan) ...[
+                    const SizedBox(height: 16),
+                    _buildOcrResultCard(),
                   ],
                 ],
               ),
@@ -381,159 +597,155 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
           ),
         ],
       ),
-
-      // ── Floating Donate Now button ────────────────────────────────────
       bottomNavigationBar: _buildDonateButton(),
     );
   }
 
   // ==========================================================================
-  // UI WIDGETS
+  // SECTION LABEL
   // ==========================================================================
 
-  Widget _sectionLabel(String text) => Text(
-    text,
-    style: const TextStyle(
-      fontSize: 16,
-      fontWeight: FontWeight.bold,
-      color: Color(0xFF1A1A1A),
-    ),
-  );
-
-  // ── Cause tiles 3-column grid ─────────────────────────────────────────────
-  Widget _buildCauseGrid() {
-    return GridView.count(
-      crossAxisCount: 3,
-      shrinkWrap: true,
-      physics: const NeverScrollableScrollPhysics(),
-      crossAxisSpacing: 10,
-      mainAxisSpacing: 10,
-      childAspectRatio: 0.9,
-      children: _causes.map((cause) {
-        final isSelected = _selectedCause == cause['name'];
-        final grads = cause['grad'] as List<Color>;
-
-        return GestureDetector(
-          onTap: () => setState(() => _selectedCause = cause['name'] as String),
-          child: AnimatedContainer(
-            duration: const Duration(milliseconds: 200),
-            decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(16),
-              gradient: isSelected
-                  ? LinearGradient(
-                colors: grads,
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-              )
-                  : null,
-              color: isSelected ? null : Colors.white,
-              border: Border.all(
-                color: isSelected
-                    ? Colors.transparent
-                    : Colors.grey[200]!,
-                width: 1.5,
-              ),
-              boxShadow: isSelected
-                  ? [
-                BoxShadow(
-                  color: grads[0].withOpacity(0.35),
-                  blurRadius: 12,
-                  offset: const Offset(0, 4),
-                )
-              ]
-                  : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 6,
-                )
-              ],
-            ),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Container(
-                  width: 44,
-                  height: 44,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isSelected
-                        ? Colors.white.withOpacity(0.2)
-                        : grads[0].withOpacity(0.10),
-                  ),
-                  child: Icon(
-                    cause['icon'] as IconData,
-                    size: 22,
-                    color: isSelected ? Colors.white : grads[0],
-                  ),
-                ),
-                const SizedBox(height: 8),
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 4),
-                  child: Text(
-                    cause['name'] as String,
-                    textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w600,
-                      color: isSelected
-                          ? Colors.white
-                          : const Color(0xFF333333),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        );
-      }).toList(),
+  Widget _sectionLabel(String text) {
+    return Text(
+      text,
+      style: const TextStyle(
+        fontSize: 16,
+        fontWeight: FontWeight.bold,
+        color: Color(0xFF1A1A1A),
+      ),
     );
   }
 
-  // ── Amount preset chips ───────────────────────────────────────────────────
+  // ==========================================================================
+  // CAMPAIGN SELECTOR
+  // ==========================================================================
+
+  Widget _buildCampaignSelector() {
+    return StreamBuilder<QuerySnapshot>(
+      stream: _controller.campaignsStream,
+      builder: (context, snapshot) {
+        final campaigns = snapshot.data?.docs ?? [];
+
+        return Container(
+          padding: const EdgeInsets.symmetric(
+            horizontal: 14,
+          ),
+          decoration: BoxDecoration(
+            color: Colors.white,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: Colors.grey[300]!,
+            ),
+          ),
+          child: DropdownButtonHideUnderline(
+            child: DropdownButton<String?>(
+              value: _selectedCampaignId,
+              isExpanded: true,
+              hint: const Text(
+                'General Fund (No specific campaign)',
+                style: TextStyle(
+                  fontSize: 13,
+                  color: Colors.grey,
+                ),
+              ),
+              icon: const Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: Colors.grey,
+              ),
+              items: [
+                const DropdownMenuItem<String?>(
+                  value: null,
+                  child: Text(
+                    'General Fund (No specific campaign)',
+                    style: TextStyle(fontSize: 13),
+                  ),
+                ),
+                ...campaigns.map((doc) {
+                  final data =
+                  doc.data() as Map<String, dynamic>;
+
+                  return DropdownMenuItem<String?>(
+                    value: doc.id,
+                    child: Text(
+                      data['title'] ?? 'Untitled Campaign',
+                      style: const TextStyle(
+                        fontSize: 13,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  );
+                }),
+              ],
+              onChanged: (value) {
+                setState(() {
+                  _selectedCampaignId = value;
+
+                  if (value == null) {
+                    _selectedCampaignName = null;
+                  } else {
+                    final doc = campaigns.firstWhere(
+                          (d) => d.id == value,
+                    );
+
+                    final data =
+                    doc.data() as Map<String, dynamic>;
+
+                    _selectedCampaignName =
+                        data['title'] ??
+                            'Untitled Campaign';
+                  }
+                });
+              },
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  // ==========================================================================
+  // AMOUNT CHIPS
+  // ==========================================================================
+
   Widget _buildAmountChips() {
     return Wrap(
       spacing: 10,
       runSpacing: 10,
       children: _presets.map((amt) {
-        final isSelected =
+        final bool isSelected =
             _selectedPreset == amt.toDouble() &&
                 _customCtrl.text.isEmpty;
 
         return GestureDetector(
-          onTap: () => setState(() {
-            _selectedPreset = amt.toDouble();
-            _customCtrl.clear();
-          }),
+          onTap: () {
+            setState(() {
+              _selectedPreset = amt.toDouble();
+              _customCtrl.clear();
+            });
+          },
           child: AnimatedContainer(
-            duration: const Duration(milliseconds: 180),
+            duration: const Duration(
+              milliseconds: 180,
+            ),
             padding: const EdgeInsets.symmetric(
-                horizontal: 20, vertical: 12),
+              horizontal: 20,
+              vertical: 12,
+            ),
             decoration: BoxDecoration(
-              color: isSelected ? _green : Colors.white,
+              color: isSelected
+                  ? _green
+                  : Colors.white,
               borderRadius: BorderRadius.circular(32),
               border: Border.all(
-                color: isSelected ? _green : Colors.grey[300]!,
-                width: 1,
+                color: isSelected
+                    ? _green
+                    : Colors.grey[300]!,
               ),
-              boxShadow: isSelected
-                  ? [
-                BoxShadow(
-                  color: _green.withOpacity(0.3),
-                  blurRadius: 10,
-                  offset: const Offset(0, 4),
-                )
-              ]
-                  : [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.04),
-                  blurRadius: 4,
-                )
-              ],
             ),
             child: Text(
               amt >= 1000
-                  ? 'PKR ${(amt / 1000).toStringAsFixed(0)}K'
-                  : 'PKR $amt',
+                  ? 'Rs. ${(amt / 1000).toStringAsFixed(0)}K'
+                  : 'Rs. $amt',
               style: TextStyle(
                 color: isSelected
                     ? Colors.white
@@ -548,176 +760,231 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
     );
   }
 
-  // ── Custom amount text field ──────────────────────────────────────────────
+  // ==========================================================================
+  // CUSTOM AMOUNT
+  // ==========================================================================
+
   Widget _buildCustomAmountField() {
     return TextField(
       controller: _customCtrl,
-      keyboardType:
-      const TextInputType.numberWithOptions(decimal: false),
+      keyboardType: const TextInputType.numberWithOptions(
+        decimal: false,
+      ),
       style: const TextStyle(
         fontSize: 16,
         fontWeight: FontWeight.w600,
-        color: Color(0xFF1A1A1A),
       ),
-      onChanged: (_) => setState(() => _selectedPreset = null),
+      onChanged: (_) {
+        setState(() {
+          _selectedPreset = null;
+        });
+      },
       decoration: InputDecoration(
-        hintText: 'Enter custom amount (e.g. 2500)',
-        hintStyle:
-        const TextStyle(color: Colors.grey, fontSize: 14),
-        prefixIcon: Container(
-          margin: const EdgeInsets.fromLTRB(12, 8, 4, 8),
-          padding: const EdgeInsets.symmetric(horizontal: 10),
-          decoration: BoxDecoration(
-            color: _green.withOpacity(0.1),
-            borderRadius: BorderRadius.circular(8),
-          ),
-          child: const Text(
-            'PKR',
-            style: TextStyle(
-              color: Color(0xFF1B6B3A),
-              fontWeight: FontWeight.bold,
-              fontSize: 13,
-            ),
-          ),
-        ),
-        prefixIconConstraints: const BoxConstraints(minWidth: 0),
+        hintText: 'Enter custom amount',
         filled: true,
         fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(
-            vertical: 16, horizontal: 16),
+          vertical: 16,
+          horizontal: 16,
+        ),
         border: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
+          borderSide: BorderSide(
+            color: Colors.grey[300]!,
+          ),
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide: BorderSide(color: Colors.grey[300]!, width: 1),
+          borderSide: BorderSide(
+            color: Colors.grey[300]!,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(14),
-          borderSide:
-          const BorderSide(color: Color(0xFF1B6B3A), width: 1.5),
+          borderSide: const BorderSide(
+            color: _green,
+            width: 1.5,
+          ),
         ),
       ),
     );
   }
 
-  // ── Payment method cards ──────────────────────────────────────────────────
-  Widget _buildPaymentCards() {
+  // ==========================================================================
+  // DONOR DETAILS
+  // ==========================================================================
+
+  Widget _buildDonorDetailsFields() {
     return Column(
       children: [
-        _payCard(
-          value: 'jazzcash',
-          title: 'JazzCash',
-          subtitle: 'Pay securely via JazzCash gateway',
-          icon: Icons.account_balance_wallet_rounded,
-          iconColor: const Color(0xFFCC0000),
-          badge: 'Sandbox',
+        TextField(
+          controller: _phoneCtrl,
+          keyboardType: TextInputType.phone,
+          decoration: InputDecoration(
+            hintText: 'Phone Number *',
+            prefixIcon: const Icon(
+              Icons.phone_outlined,
+              size: 18,
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 14,
+              horizontal: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
         ),
-        const SizedBox(height: 10),
-        _payCard(
-          value: 'manual',
-          title: 'Manual Payment',
-          subtitle: 'Bank transfer with receipt proof',
-          icon: Icons.receipt_long_rounded,
-          iconColor: const Color(0xFF1565C0),
+
+        const SizedBox(height: 12),
+
+        TextField(
+          controller: _cnicCtrl,
+          keyboardType: TextInputType.number,
+          decoration: InputDecoration(
+            hintText: 'CNIC Number *',
+            prefixIcon: const Icon(
+              Icons.badge_outlined,
+              size: 18,
+            ),
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding: const EdgeInsets.symmetric(
+              vertical: 14,
+              horizontal: 14,
+            ),
+            border: OutlineInputBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+          ),
         ),
       ],
     );
   }
 
-  Widget _payCard({
-    required String value,
-    required String title,
-    required String subtitle,
-    required IconData icon,
-    required Color iconColor,
-    String? badge,
-  }) {
-    final isSelected = _method == value;
-    return GestureDetector(
-      onTap: () => setState(() => _method = value),
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 200),
-        padding: const EdgeInsets.all(14),
-        decoration: BoxDecoration(
-          color: isSelected ? _green.withOpacity(0.06) : Colors.white,
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(
-            color: isSelected ? _green : Colors.grey[200]!,
-            width: isSelected ? 1.5 : 1,
+  // ==========================================================================
+  // RECEIPT SECTION
+  // ==========================================================================
+
+  Widget _buildReceiptSection() {
+    if (_isScanning) {
+      return _loadingCard(
+        'Scanning your payment receipt...',
+      );
+    }
+
+    if (_receiptFile != null) {
+      return Stack(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.file(
+              _receiptFile!,
+              height: 180,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) {
+                return Container(
+                  height: 180,
+                  width: double.infinity,
+                  color: const Color(0xFFE8F5E9),
+                  child: const Center(
+                    child: Icon(
+                      Icons.broken_image_outlined,
+                      color: _green,
+                      size: 40,
+                    ),
+                  ),
+                );
+              },
+            ),
           ),
-          boxShadow: [
-            BoxShadow(
-              color: Colors.black
-                  .withOpacity(isSelected ? 0.06 : 0.03),
-              blurRadius: 8,
+
+          // Remove receipt
+          Positioned(
+            top: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: () {
+                setState(() {
+                  _receiptFile = null;
+                  _ocrRan = false;
+                  _ocrResult = null;
+                });
+              },
+              child: Container(
+                padding: const EdgeInsets.all(6),
+                decoration: const BoxDecoration(
+                  color: Colors.red,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.close,
+                  color: Colors.white,
+                  size: 16,
+                ),
+              ),
             ),
-          ],
+          ),
+
+          // Change receipt
+          Positioned(
+            bottom: 8,
+            right: 8,
+            child: GestureDetector(
+              onTap: _pickReceipt,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: _green,
+                  borderRadius: BorderRadius.circular(20),
+                ),
+                child: const Text(
+                  'Change',
+                  style: TextStyle(
+                    color: Colors.white,
+                    fontSize: 11,
+                  ),
+                ),
+              ),
+            ),
+          ),
+        ],
+      );
+    }
+
+    return GestureDetector(
+      onTap: _pickReceipt,
+      child: Container(
+        height: 130,
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(
+            color: _green.withOpacity(0.3),
+          ),
         ),
-        child: Row(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: iconColor.withOpacity(0.12),
-                borderRadius: BorderRadius.circular(12),
-              ),
-              child: Icon(icon, color: iconColor, size: 22),
+            const Icon(
+              Icons.add_a_photo_outlined,
+              color: _green,
+              size: 30,
             ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Text(
-                        title,
-                        style: TextStyle(
-                          fontWeight: FontWeight.w700,
-                          fontSize: 14,
-                          color: isSelected
-                              ? _green
-                              : const Color(0xFF1A1A1A),
-                        ),
-                      ),
-                      if (badge != null) ...[
-                        const SizedBox(width: 6),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                              horizontal: 6, vertical: 2),
-                          decoration: BoxDecoration(
-                            color: Colors.orange[100],
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            badge,
-                            style: TextStyle(
-                              fontSize: 9,
-                              color: Colors.orange[800],
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ],
-                  ),
-                  Text(
-                    subtitle,
-                    style: const TextStyle(
-                        fontSize: 11, color: Colors.grey),
-                  ),
-                ],
+            const SizedBox(height: 8),
+            Text(
+              'Upload Payment Receipt',
+              style: TextStyle(
+                color: _green,
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
               ),
-            ),
-            Icon(
-              isSelected
-                  ? Icons.radio_button_checked
-                  : Icons.radio_button_off,
-              color: isSelected ? _green : Colors.grey[400],
-              size: 22,
             ),
           ],
         ),
@@ -725,164 +992,194 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
     );
   }
 
-  // ── Manual payment fields ─────────────────────────────────────────────────
-  Widget _buildManualFields() {
+  // ==========================================================================
+  // LOADING CARD
+  // ==========================================================================
+
+  Widget _loadingCard(String message) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      height: 130,
       decoration: BoxDecoration(
         color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: Colors.grey[200]!),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 8,
-          )
-        ],
+        borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          // Info banner
-          Container(
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orange[50],
-              borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: Colors.orange[200]!),
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Icon(Icons.info_outline_rounded,
-                    color: Colors.orange[700], size: 18),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    'Transfer to:\nJazzCash: 0300-0000000\nAccount: DonateHub\nThen enter your Transaction ID below.',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: Colors.orange[900],
-                      height: 1.5,
-                    ),
-                  ),
-                ),
-              ],
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(
+              color: _green,
+              strokeWidth: 2.5,
             ),
           ),
-
-          const SizedBox(height: 16),
-
-          // Transaction ID
-          const Text(
-            'Transaction ID *',
+          const SizedBox(height: 10),
+          Text(
+            message,
             style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
-          TextField(
-            controller: _txnIdCtrl,
-            style: const TextStyle(fontSize: 14),
-            decoration: InputDecoration(
-              hintText: 'e.g. JC20240001234',
-              hintStyle: const TextStyle(
-                  color: Colors.grey, fontSize: 13),
-              prefixIcon: const Icon(Icons.tag_rounded,
-                  color: Colors.grey, size: 18),
-              filled: true,
-              fillColor: const Color(0xFFF4F6F8),
-              contentPadding: const EdgeInsets.symmetric(
-                  vertical: 14, horizontal: 14),
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: BorderSide.none,
-              ),
-              focusedBorder: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(12),
-                borderSide: const BorderSide(
-                    color: Color(0xFF1B6B3A), width: 1.5),
-              ),
+              color: Colors.grey[600],
+              fontSize: 12,
             ),
           ),
+        ],
+      ),
+    );
+  }
 
-          const SizedBox(height: 16),
+  // ==========================================================================
+  // OCR RESULT CARD
+  // ==========================================================================
 
-          // Screenshot upload
-          const Text(
-            'Upload Screenshot (Optional)',
-            style: TextStyle(
-                fontSize: 13, fontWeight: FontWeight.w600),
-          ),
-          const SizedBox(height: 8),
+  Widget _buildOcrResultCard() {
+    final bool hasData =
+        _ocrResult?.hasAnyData ?? false;
 
-          _screenshot != null
-              ? Stack(
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: hasData
+            ? const Color(0xFFEFF6FF)
+            : const Color(0xFFFFF3E4),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: hasData
+              ? const Color(0xFF2563EB)
+              .withOpacity(0.3)
+              : Colors.orange.withOpacity(0.3),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment:
+        CrossAxisAlignment.start,
+        children: [
+          Row(
             children: [
-              ClipRRect(
-                borderRadius: BorderRadius.circular(12),
-                child: Image.file(
-                  _screenshot!,
-                  height: 160,
-                  width: double.infinity,
-                  fit: BoxFit.cover,
-                ),
+              Icon(
+                hasData
+                    ? Icons.auto_awesome_rounded
+                    : Icons.info_outline_rounded,
+                size: 16,
+                color: hasData
+                    ? const Color(0xFF2563EB)
+                    : Colors.orange[700],
               ),
-              Positioned(
-                top: 6,
-                right: 6,
-                child: GestureDetector(
-                  onTap: () =>
-                      setState(() => _screenshot = null),
-                  child: Container(
-                    padding: const EdgeInsets.all(4),
-                    decoration: const BoxDecoration(
-                      color: Colors.red,
-                      shape: BoxShape.circle,
-                    ),
-                    child: const Icon(Icons.close,
-                        color: Colors.white, size: 14),
-                  ),
+              const SizedBox(width: 6),
+              Text(
+                hasData
+                    ? 'OCR Detected — Please Confirm'
+                    : 'Could not read receipt automatically',
+                style: TextStyle(
+                  fontSize: 12.5,
+                  fontWeight: FontWeight.bold,
+                  color: hasData
+                      ? const Color(0xFF2563EB)
+                      : Colors.orange[700],
                 ),
               ),
             ],
-          )
-              : GestureDetector(
-            onTap: _pickScreenshot,
-            child: Container(
-              height: 90,
-              decoration: BoxDecoration(
-                color: const Color(0xFFF4F6F8),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: Colors.grey[300]!),
-              ),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Icon(
-                    Icons.add_photo_alternate_outlined,
-                    color: Colors.grey[400],
-                    size: 32,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Tap to upload screenshot',
-                    style: TextStyle(
-                        color: Colors.grey[500], fontSize: 12),
-                  ),
-                ],
-              ),
+          ),
+
+          const SizedBox(height: 4),
+
+          Text(
+            'This is only text extracted from your image — '
+                'it does not confirm the payment was received. '
+                'You can correct any field below.',
+            style: TextStyle(
+              fontSize: 10.5,
+              color: Colors.grey[600],
             ),
           ),
+
+          const SizedBox(height: 12),
+
+          _editableRow(
+            'Amount',
+            _customCtrl,
+            prefixText: 'Rs. ',
+          ),
+
+          const SizedBox(height: 10),
+
+          _editableRow(
+            'Transaction ID',
+            _txnIdCtrl,
+          ),
+
+          if (_ocrResult?.paymentDate != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              'Detected date: ${_ocrResult!.paymentDate}',
+              style: TextStyle(
+                fontSize: 11.5,
+                color: Colors.grey[600],
+              ),
+            ),
+          ],
         ],
       ),
     );
   }
 
-  // ── Floating bottom donate button ─────────────────────────────────────────
+  // ==========================================================================
+  // EDITABLE OCR FIELD
+  // ==========================================================================
+
+  Widget _editableRow(
+      String label,
+      TextEditingController ctrl, {
+        String? prefixText,
+      }) {
+    return Column(
+      crossAxisAlignment:
+      CrossAxisAlignment.start,
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+
+        const SizedBox(height: 4),
+
+        TextField(
+          controller: ctrl,
+          style: const TextStyle(
+            fontSize: 13,
+          ),
+          decoration: InputDecoration(
+            prefixText: prefixText,
+            filled: true,
+            fillColor: Colors.white,
+            contentPadding:
+            const EdgeInsets.symmetric(
+              horizontal: 12,
+              vertical: 10,
+            ),
+            border: OutlineInputBorder(
+              borderRadius:
+              BorderRadius.circular(10),
+              borderSide: BorderSide.none,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  // ==========================================================================
+  // DONATE BUTTON
+  // ==========================================================================
+
   Widget _buildDonateButton() {
-    final hasAll = _selectedCause != null &&
+    final bool hasAll =
         _finalAmount != null &&
-        _finalAmount! >= 10;
+            _finalAmount! >= 10 &&
+            _selectedPaymentMethod != null;
 
     return Container(
       padding: EdgeInsets.fromLTRB(
@@ -905,148 +1202,38 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
         width: double.infinity,
         height: 54,
         child: ElevatedButton(
-          onPressed: (_processing || !hasAll) ? null : _submit,
+          onPressed:
+          (_isSubmitting || !hasAll)
+              ? null
+              : _submit,
           style: ElevatedButton.styleFrom(
             backgroundColor: _teal,
-            disabledBackgroundColor: Colors.grey[300],
+            disabledBackgroundColor:
+            Colors.grey[300],
             shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(32)),
-            elevation: 0,
+              borderRadius:
+              BorderRadius.circular(32),
+            ),
           ),
-          child: _processing
+          child: _isSubmitting
               ? const SizedBox(
             width: 24,
             height: 24,
             child: CircularProgressIndicator(
-                color: Colors.white, strokeWidth: 2.5),
+              color: Colors.white,
+              strokeWidth: 2.5,
+            ),
           )
-              : Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Icon(
-                _method == 'jazzcash'
-                    ? Icons.account_balance_wallet_rounded
-                    : Icons.send_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
-              const SizedBox(width: 10),
-              Text(
-                _finalAmount != null
-                    ? 'Donate PKR ${_finalAmount!.toStringAsFixed(0)}'
-                    : 'Donate Now',
-                style: const TextStyle(
-                  color: Colors.white,
-                  fontSize: 16,
-                  fontWeight: FontWeight.bold,
-                  letterSpacing: 0.3,
-                ),
-              ),
-            ],
+              : Text(
+            _finalAmount != null
+                ? 'Donate Rs. ${_finalAmount!.toStringAsFixed(0)}'
+                : 'Donate Now',
+            style: const TextStyle(
+              color: Colors.white,
+              fontSize: 16,
+              fontWeight: FontWeight.bold,
+            ),
           ),
-        ),
-      ),
-    );
-  }
-
-  // ── Screenshot picker bottom sheet ────────────────────────────────────────
-  Future<void> _pickScreenshot() async {
-    showModalBottomSheet(
-      context: context,
-      shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
-      ),
-      builder: (ctx) => Padding(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Container(
-              width: 40,
-              height: 4,
-              decoration: BoxDecoration(
-                color: Colors.grey[300],
-                borderRadius: BorderRadius.circular(2),
-              ),
-            ),
-            const SizedBox(height: 14),
-            const Text(
-              'Upload Screenshot',
-              style: TextStyle(
-                  fontSize: 15, fontWeight: FontWeight.bold),
-            ),
-            const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: _srcButton(
-                    icon: Icons.camera_alt_rounded,
-                    label: 'Camera',
-                    color: _green,
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final f = await _picker.pickImage(
-                          source: ImageSource.camera,
-                          imageQuality: 80);
-                      if (f != null) {
-                        setState(
-                                () => _screenshot = File(f.path));
-                      }
-                    },
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: _srcButton(
-                    icon: Icons.photo_library_rounded,
-                    label: 'Gallery',
-                    color: const Color(0xFF1565C0),
-                    onTap: () async {
-                      Navigator.pop(ctx);
-                      final f = await _picker.pickImage(
-                          source: ImageSource.gallery,
-                          imageQuality: 80);
-                      if (f != null) {
-                        setState(
-                                () => _screenshot = File(f.path));
-                      }
-                    },
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _srcButton({
-    required IconData icon,
-    required String label,
-    required Color color,
-    required VoidCallback onTap,
-  }) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(vertical: 16),
-        decoration: BoxDecoration(
-          color: color.withOpacity(0.08),
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.25)),
-        ),
-        child: Column(
-          children: [
-            Icon(icon, color: color, size: 30),
-            const SizedBox(height: 8),
-            Text(
-              label,
-              style: TextStyle(
-                  color: color, fontWeight: FontWeight.w600),
-            ),
-          ],
         ),
       ),
     );

@@ -57,8 +57,6 @@ class DonorImpactTab extends StatelessWidget {
               child: StreamBuilder<QuerySnapshot>(
                 stream: FirebaseFirestore.instance
                     .collection('utilization')
-                    .where('status',
-                    isEqualTo: 'completed')
                     .orderBy('createdAt',
                     descending: true)
                     .snapshots(),

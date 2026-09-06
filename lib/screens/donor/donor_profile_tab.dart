@@ -2,7 +2,13 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-
+import '../admin/screens/shared/notifications_screen.dart';
+import 'contact_us_screen.dart';
+import 'donor_feedback_tab.dart'; // NEW
+import '../../widgets/appearance_selector_sheet.dart';
+import '../shared/notifications_screen.dart'; // NEW
+import 'about_us_screen.dart';
+import 'help_support_screen.dart';
 class DonorProfileTab extends StatefulWidget {
   const DonorProfileTab({super.key});
 
@@ -20,6 +26,7 @@ class _DonorProfileTabState
   final _phoneController = TextEditingController();
   bool _isEditing = false;
   bool _isSaving = false;
+  String? _phoneError;
 
   @override
   void dispose() {
@@ -216,9 +223,10 @@ class _DonorProfileTabState
                                         _saveProfile(
                                             uid);
                                       } else {
-                                        setState(() =>
-                                        _isEditing =
-                                        true);
+                                        setState(() {
+                                          _isEditing = true;
+                                          _phoneError = null;
+                                        });
                                       }
                                     },
                                     child: Container(
@@ -288,6 +296,15 @@ class _DonorProfileTabState
                                 Icons.phone_outlined,
                                 keyboardType:
                                 TextInputType.phone,
+                                maxLength: 16,
+                                errorText: _phoneError,
+                                onChanged: (value) {
+                                  if (_phoneError != null) {
+                                    setState(() {
+                                      _phoneError = null;
+                                    });
+                                  }
+                                },
                               ),
                             ],
                           ),
@@ -298,12 +315,10 @@ class _DonorProfileTabState
                         _MenuCard(
                           items: [
                             _MenuItem(
-                              icon: Icons
-                                  .notifications_outlined,
+                              icon: Icons.notifications_outlined,
                               label: 'Notifications',
-                              color: const Color(
-                                  0xFF1565C0),
-                              onTap: () {},
+                              color: const Color(0xFF1565C0),
+                              onTap: () => Get.to(() => const NotificationsScreen(accentColor: _green)),
                             ),
                             _MenuItem(
                               icon: Icons.lock_outline,
@@ -315,6 +330,19 @@ class _DonorProfileTabState
                                       context),
                             ),
                             _MenuItem(
+                              icon: Icons.dark_mode_outlined,
+                              label: 'Appearance',
+                              color: const Color(0xFF6A1B9A),
+                              onTap: () => AppearanceSelectorSheet.show(context, accentColor: _green),
+                            ),
+                            // NEW — permanent, always-available feedback
+                            _MenuItem(
+                              icon: Icons.star_outline_rounded,
+                              label: 'Give Feedback',
+                              color: const Color(0xFFFFA000),
+                              onTap: () => Get.to(() => const DonorFeedbackTab()),
+                            ),
+                            _MenuItem(
                               icon: Icons
                                   .help_outline_rounded,
                               label: 'Help & Support',
@@ -322,8 +350,28 @@ class _DonorProfileTabState
                                   0xFF00838F),
                               onTap: () {},
                             ),
+                            _MenuItem(
+                              icon: Icons.contact_support_outlined,
+                              label: 'Contact Us',
+                              color: const Color(0xFFE65100),
+                              onTap: () => Get.to(() => const ContactUsScreen()),
+                            ),
+                            _MenuItem(
+                              icon: Icons.info_outline_rounded,
+                              label: 'About Us',
+                              color: const Color(0xFF37474F),
+                              onTap: () {
+                                Get.snackbar(
+                                  'Coming Soon',
+                                  'About Us page is on the way.',
+                                  snackPosition: SnackPosition.BOTTOM,
+                                  margin: const EdgeInsets.all(16),
+                                );
+                              },
+                            ),
                           ],
                         ),
+
                         const SizedBox(height: 14),
 
                         // ── Logout ────────────────────
@@ -414,7 +462,31 @@ class _DonorProfileTabState
   }
 
   Future<void> _saveProfile(String uid) async {
-    setState(() => _isSaving = true);
+    final phoneError =
+    _validatePhoneNumber(_phoneController.text);
+
+    if (phoneError != null) {
+      setState(() {
+        _phoneError = phoneError;
+      });
+
+      Get.snackbar(
+        'Invalid Phone Number',
+        phoneError,
+        backgroundColor: Colors.red[50],
+        colorText: Colors.red[700],
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+
+      return;
+    }
+
+    setState(() {
+      _phoneError = null;
+      _isSaving = true;
+    });
+
     try {
       await FirebaseFirestore.instance
           .collection('users')
@@ -429,7 +501,11 @@ class _DonorProfileTabState
           ?.updateDisplayName(
           _nameController.text.trim());
 
-      setState(() => _isEditing = false);
+      setState(() {
+        _isEditing = false;
+        _phoneError = null;
+      });
+
       Get.snackbar(
         'Updated',
         'Profile updated successfully!',
@@ -445,8 +521,37 @@ class _DonorProfileTabState
         snackPosition: SnackPosition.BOTTOM,
       );
     } finally {
-      setState(() => _isSaving = false);
+      if (mounted) {
+        setState(() => _isSaving = false);
+      }
     }
+  }
+
+  String? _validatePhoneNumber(String value) {
+    final phone = value
+        .trim()
+        .replaceAll(RegExp(r'[\s\-()]'), '');
+
+    if (phone.isEmpty) {
+      return 'Phone number is required.';
+    }
+
+    // Pakistan local format: 03XXXXXXXXX
+    if (RegExp(r'^03\d{9}$').hasMatch(phone)) {
+      return null;
+    }
+
+    // Pakistan international format: +92XXXXXXXXXX
+    if (RegExp(r'^\+92\d{10}$').hasMatch(phone)) {
+      return null;
+    }
+
+    // General international format (E.164-style).
+    if (RegExp(r'^\+?[1-9]\d{7,14}$').hasMatch(phone)) {
+      return null;
+    }
+
+    return 'Enter a valid mobile number, e.g. 03001234567 or +923001234567.';
   }
 
   void _confirmLogout(BuildContext context) {
@@ -627,6 +732,9 @@ class _ProfileField extends StatefulWidget {
   final IconData icon;
   final bool isPassword;
   final TextInputType keyboardType;
+  final int? maxLength;
+  final String? errorText;
+  final ValueChanged<String>? onChanged;
 
   const _ProfileField({
     required this.label,
@@ -635,6 +743,9 @@ class _ProfileField extends StatefulWidget {
     required this.icon,
     this.isPassword = false,
     this.keyboardType = TextInputType.text,
+    this.maxLength,
+    this.errorText,
+    this.onChanged,
   });
 
   @override
@@ -666,8 +777,12 @@ class _ProfileFieldState
           obscureText:
           widget.isPassword && _obscure,
           keyboardType: widget.keyboardType,
+          maxLength: widget.maxLength,
+          onChanged: widget.onChanged,
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
+            errorText: widget.errorText,
+            counterText: widget.maxLength != null ? '' : null,
             prefixIcon: Icon(widget.icon,
                 size: 18, color: Colors.grey[500]),
             suffixIcon: widget.isPassword
@@ -714,6 +829,21 @@ class _ProfileFieldState
               BorderRadius.circular(10),
               borderSide: const BorderSide(
                   color: Color(0xFF1B6B3A)),
+            ),
+            errorBorder: OutlineInputBorder(
+              borderRadius:
+              BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Colors.red,
+              ),
+            ),
+            focusedErrorBorder: OutlineInputBorder(
+              borderRadius:
+              BorderRadius.circular(10),
+              borderSide: const BorderSide(
+                color: Colors.red,
+                width: 1.5,
+              ),
             ),
           ),
         ),

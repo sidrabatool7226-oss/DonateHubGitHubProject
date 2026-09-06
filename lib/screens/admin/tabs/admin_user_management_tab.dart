@@ -425,11 +425,13 @@ class _UserCard extends StatelessWidget {
                     const SizedBox(width: 6),
                     // Deactivate/Activate
                     GestureDetector(
-                      onTap: () =>
-                          controller.toggleManagerStatus(
-                            docId,
-                            isActive,
-                          ),
+                    onTap: () {
+                    if (isActive) {
+                    _confirmDeactivate(context, controller, docId);
+                    } else {
+                    controller.toggleManagerStatus(docId, isActive);
+                    }
+                    },
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -493,7 +495,33 @@ class _UserCard extends StatelessWidget {
     );
   }
 }
-
+void _confirmDeactivate(BuildContext context,
+    UserManagementController controller, String docId) {
+  showDialog(
+    context: context,
+    builder: (_) => AlertDialog(
+      shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16)),
+      title: const Text('Deactivate Manager'),
+      content: const Text(
+          'Are you sure you want to deactivate this account?'),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.pop(context),
+          child: const Text('No'),
+        ),
+        TextButton(
+          onPressed: () {
+            Navigator.pop(context);
+            controller.toggleManagerStatus(docId, true);
+          },
+          child: Text('Yes',
+              style: TextStyle(color: Colors.red[700])),
+        ),
+      ],
+    ),
+  );
+}
 // ==========================================================================
 // CREATE MANAGER SHEET
 // ==========================================================================

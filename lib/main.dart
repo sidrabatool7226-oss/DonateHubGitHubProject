@@ -3,6 +3,10 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart'; // NEW
+import 'controllers/theme_controller.dart'; // NEW
+import 'theme/app_theme.dart'; // NEW
+import 'services/fcm_service.dart';
 import 'screens/admin/screens/utilization_detail_screen.dart';
 import 'screens/admin/screens/create_utilization_screen.dart';
 import 'screens/donor/impact_screen.dart';
@@ -10,7 +14,6 @@ import 'firebase_options.dart';
 import 'bindings/initial_binding.dart';
 import 'screens/donor/donor_dashboard.dart';
 import 'screens/donor/donor_donations_tab.dart';
-// Existing screens — yeh sab same rahein ge
 import 'screens/auth/splash_screen.dart';
 import 'screens/auth/login_screen.dart';
 import 'screens/auth/signup_screen.dart';
@@ -21,7 +24,12 @@ import 'screens/donor/donate_funds_screen.dart';
 import 'screens/donor/donate_form_screen.dart';
 import 'screens/admin/admin_dashboard.dart';
 import 'screens/admin/screens/admin_profile_screen.dart';
-// Background FCM handler — main() se bahar hona zaroori hai
+import 'screens/manager/tabs/manager_home_tab.dart';
+import 'screens/manager/manager_dashboard.dart';
+import 'screens/volunteer/volunteer_registration_form_screen.dart';
+import 'screens/volunteer/verification_status_screen.dart';
+import 'screens/volunteer/volunteer_dashboard.dart';
+
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
   await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
@@ -31,25 +39,29 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Portrait mode lock
+  // NEW — GetStorage init, required before any read/write
+  await GetStorage.init();
+
   await SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
   ]);
 
-  // Firebase initialize
   await Firebase.initializeApp(
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  // FCM background handler register
   FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
 
-  // FCM permission maango
   await FirebaseMessaging.instance.requestPermission(
     alert: true,
     badge: true,
     sound: true,
   );
+
+  await FcmService().initialize();
+
+  // NEW — theme controller must exist before GetMaterialApp builds
+  Get.put(ThemeController(), permanent: true);
 
   runApp(const DonateHubApp());
 }
@@ -59,91 +71,36 @@ class DonateHubApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return GetMaterialApp(               // MaterialApp → GetMaterialApp
+    final themeController = Get.find<ThemeController>();
+
+    // NEW — Obx wraps GetMaterialApp so theme changes rebuild instantly,
+    // app-wide, without requiring a restart.
+    return Obx(() => GetMaterialApp(
       title: 'DonateHub',
       debugShowCheckedModeBanner: false,
-      initialBinding: InitialBinding(),  // GetX controllers register
-
-      theme: ThemeData(
-        useMaterial3: true,
-        colorScheme: ColorScheme.fromSeed(
-          seedColor: const Color(0xFF2D6A4F),
-        ),
-        fontFamily: 'Roboto',
-      ),
-
-      // Existing routes — sab same rakho
+      initialBinding: InitialBinding(),
+      theme: AppTheme.light,
+      darkTheme: AppTheme.dark,
+      themeMode: themeController.flutterThemeMode,
       initialRoute: '/',
       getPages: [
-        GetPage(name: '/',                    page: () => const SplashScreen()),
-        GetPage(name: '/login',               page: () => const LoginScreen()),
-        GetPage(name: '/signup',              page: () => const SignupScreen()),
-        GetPage(name: '/donor_dashboard',     page: () => HomeScreen()),
-        GetPage(name: '/donate_items',        page: () => const CategorySelectionScreen()),
-        GetPage(name: '/donate_funds',        page: () => const DonateFundsScreen()),
-        GetPage(name: '/admin_dashboard',     page: () => const AdminDashboard()),
-        GetPage(
-          name: '/admin_profile',
-          page: () => const AdminProfileScreen(),
-        ),
-        GetPage(
-          name: '/utilization_detail',
-          page: () => UtilizationDetailScreen(data: {}),
-        ),
-        GetPage(
-          name: '/create_utilization',
-          page: () => CreateUtilizationScreen(),
-        ),
-        GetPage(
-          name: '/donor_impact',
-          page: () => const DonorImpactScreen(),
-        ),
-        GetPage(
-          name: '/donor_dashboard',
-          page: () => const DonorDashboard(),
-        ),
-        GetPage(
-          name: '/donation_detail',
-          page: () => DonationDetailScreen(docId: '', data: {}),
-        ),
-        // Placeholder routes — baad mein real screens se replace karein ge
-        GetPage(name: '/manager_dashboard',   page: () => const _PlaceholderScreen(title: 'Manager Dashboard')),
-        GetPage(name: '/volunteer_dashboard', page: () => const _PlaceholderScreen(title: 'Volunteer Dashboard')),
-        GetPage(name: '/volunteer_form',      page: () => const _PlaceholderScreen(title: 'Volunteer Form')),
-        GetPage(name: '/verification_status', page: () => const _PlaceholderScreen(title: 'Verification Status')),
+        GetPage(name: '/', page: () => const SplashScreen()),
+        GetPage(name: '/login', page: () => const LoginScreen()),
+        GetPage(name: '/signup', page: () => const SignupScreen()),
+        GetPage(name: '/donate_items', page: () => const CategorySelectionScreen()),
+        GetPage(name: '/donate_funds', page: () => const DonateFundsScreen()),
+        GetPage(name: '/admin_dashboard', page: () => const AdminDashboard()),
+        GetPage(name: '/admin_profile', page: () => const AdminProfileScreen()),
+        GetPage(name: '/utilization_detail', page: () => UtilizationDetailScreen(data: {})),
+        GetPage(name: '/create_utilization', page: () => CreateUtilizationScreen()),
+        GetPage(name: '/donor_impact', page: () => const DonorImpactScreen()),
+        GetPage(name: '/donor_dashboard', page: () => const DonorDashboard()),
+        GetPage(name: '/donation_detail', page: () => DonationDetailScreen(docId: '', data: {})),
+        GetPage(name: '/manager_dashboard', page: () => const ManagerDashboard()),
+        GetPage(name: '/volunteer_form', page: () => const VolunteerRegistrationFormScreen()),
+        GetPage(name: '/verification_status', page: () => const VerificationStatusScreen()),
+        GetPage(name: '/volunteer_dashboard', page: () => const VolunteerDashboard()),
       ],
-    );
-  }
-}
-
-// Placeholder — yeh baad mein real screens se replace hoga
-class _PlaceholderScreen extends StatelessWidget {
-  final String title;
-  const _PlaceholderScreen({required this.title});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: Text(title),
-        backgroundColor: const Color(0xFF2D6A4F),
-        foregroundColor: Colors.white,
-      ),
-      body: Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(Icons.construction, size: 60, color: Colors.grey),
-            const SizedBox(height: 16),
-            Text(title,
-                style: const TextStyle(
-                    fontSize: 22, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            const Text('Coming soon!',
-                style: TextStyle(color: Colors.grey)),
-          ],
-        ),
-      ),
-    );
+    ));
   }
 }

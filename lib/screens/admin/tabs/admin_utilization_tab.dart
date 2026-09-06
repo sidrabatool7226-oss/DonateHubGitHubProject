@@ -141,97 +141,76 @@ class AdminUtilizationTab extends StatelessWidget {
             // ── Filter chips ───────────────────────────────────────
             Container(
               color: Colors.white,
-              padding:
-              const EdgeInsets.symmetric(vertical: 10),
+              padding: const EdgeInsets.symmetric(vertical: 10),
               child: SizedBox(
                 height: 34,
-                child: Obx(() => ListView.builder(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(
-                      horizontal: 16),
-                  itemCount:
-                  controller.filterOptions.length,
-                  itemBuilder: (context, index) {
-                    final f =
-                    controller.filterOptions[index];
-                    final isSel =
-                        controller.selectedFilter.value ==
-                            f;
-                    return GestureDetector(
-                      onTap: () => controller
-                          .selectedFilter.value = f,
-                      child: Container(
-                        margin: const EdgeInsets.only(
-                            right: 8),
-                        padding:
-                        const EdgeInsets.symmetric(
-                            horizontal: 14,
-                            vertical: 6),
-                        decoration: BoxDecoration(
-                          color: isSel
-                              ? _green
-                              : const Color(
-                              0xFFF4F6F8),
-                          borderRadius:
-                          BorderRadius.circular(20),
-                          border: Border.all(
-                            color: isSel
-                                ? _green
-                                : Colors.grey.shade300,
+                child: Obx(() {
+                  final selected = controller.selectedFilter.value; // ✅ Explicit read yahan
+                  return SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: Row(
+                      children: controller.filterOptions.map((f) {
+                        final isSel = selected == f;
+                        return GestureDetector(
+                          onTap: () => controller.selectedFilter.value = f,
+                          child: Container(
+                            margin: const EdgeInsets.only(right: 8),
+                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            decoration: BoxDecoration(
+                              color: isSel ? _green : const Color(0xFFF4F6F8),
+                              borderRadius: BorderRadius.circular(20),
+                              border: Border.all(color: isSel ? _green : Colors.grey.shade300),
+                            ),
+                            child: Text(
+                              f,
+                              style: TextStyle(
+                                fontSize: 12,
+                                color: isSel ? Colors.white : Colors.grey[700],
+                                fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
+                              ),
+                            ),
                           ),
-                        ),
-                        child: Text(
-                          f,
-                          style: TextStyle(
-                            fontSize: 12,
-                            color: isSel
-                                ? Colors.white
-                                : Colors.grey[700],
-                            fontWeight: isSel
-                                ? FontWeight.w600
-                                : FontWeight.normal,
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                )),
+                        );
+                      }).toList(),
+                    ),
+                  );
+                }),
               ),
             ),
 
             // ── List ──────────────────────────────────────────────
+            // ── List ──────────────────────────────────────────────
             Expanded(
-              child: StreamBuilder<QuerySnapshot>(
-                stream: controller.utilizationStream,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState ==
-                      ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                          color: _green),
-                    );
-                  }
+              child: Obx(() {
+                // Yeh 2 lines zaroori hain — GetX ko pata chale kis cheez pe react karna hai
+                final currentFilter = controller.selectedFilter.value;
+                final currentSearch = controller.searchQuery.value;
 
-                  final allDocs =
-                      snapshot.data?.docs ?? [];
-                  final allRecords = allDocs.map((doc) {
-                    final data =
-                    doc.data() as Map<String, dynamic>;
-                    data['id'] = doc.id;
-                    return data;
-                  }).toList();
+                return StreamBuilder<QuerySnapshot>(
+                  stream: controller.utilizationStream,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState == ConnectionState.waiting) {
+                      return const Center(
+                        child: CircularProgressIndicator(color: _green),
+                      );
+                    }
 
-                  return Obx(() {
-                    final filtered =
-                    controller.filterRecords(allRecords);
+                    final allDocs = snapshot.data?.docs ?? [];
+                    final allRecords = allDocs.map((doc) {
+                      final data = doc.data() as Map<String, dynamic>;
+                      data['id'] = doc.id;
+                      return data;
+                    }).toList();
+
+                    final filtered = controller.filterRecords(allRecords);
 
                     if (filtered.isEmpty) {
                       return _EmptyState();
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(
-                          16, 12, 16, 16),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
                         return _UtilizationCard(
@@ -240,9 +219,9 @@ class AdminUtilizationTab extends StatelessWidget {
                         );
                       },
                     );
-                  });
-                },
-              ),
+                  },
+                );
+              }),
             ),
           ],
         ),

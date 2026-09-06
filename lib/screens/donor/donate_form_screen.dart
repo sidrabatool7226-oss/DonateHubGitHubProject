@@ -1,28 +1,15 @@
 // ============================================================
 // FILE: lib/screens/donor/donate_form_screen.dart
-//
-// DESIGN: Matches uploaded screenshot exactly
-//   - "Cancel" + "New Donation" header
-//   - "Add Photos" section with dashed upload circle
-//   - White rounded "Item Details" card with:
-//       Item name field, Category chips, Description,
-//       Conditions chips, Pickup Address
-//   - "Post Donations →" black button at bottom
-//
-// BACKEND:
-//   - Cloudinary image upload
-//   - Campaign dropdown from Firestore
-//   - Saves full donation to Firestore
 // ============================================================
 
 import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/cloudinary_service.dart';
 import '../../services/firestore_service.dart';
 
 class DonationFormScreen extends StatefulWidget {
-  // Category passed from CategorySelectionScreen
   final String selectedCategory;
   const DonationFormScreen({
     super.key,
@@ -34,37 +21,37 @@ class DonationFormScreen extends StatefulWidget {
 }
 
 class _DonationFormScreenState extends State<DonationFormScreen> {
-  // ── Services ─────────────────────────────────────────────────────────────
   final CloudinaryService _cloudinaryService = CloudinaryService();
   final FirestoreService _firestoreService = FirestoreService();
   final ImagePicker _picker = ImagePicker();
 
-  // ── Form key ─────────────────────────────────────────────────────────────
   final _formKey = GlobalKey<FormState>();
 
-  // ── Text controllers ──────────────────────────────────────────────────────
   final TextEditingController _itemNameCtrl = TextEditingController();
   final TextEditingController _quantityCtrl = TextEditingController();
   final TextEditingController _descriptionCtrl = TextEditingController();
   final TextEditingController _addressCtrl = TextEditingController();
+  final TextEditingController _phoneCtrl = TextEditingController();
+  final TextEditingController _cnicCtrl = TextEditingController();
 
-  // ── State variables ───────────────────────────────────────────────────────
-  List<File> _pickedImages = [];         // Local images before upload
-  List<String> _uploadedImageUrls = [];  // Cloudinary URLs after upload
-  bool _isUploadingImage = false;        // Show loader during upload
+  List<File> _pickedImages = [];
+  List<String> _uploadedImageUrls = [];
+  bool _isUploadingImage = false;
 
-  String _selectedCondition = 'Good';   // Condition chip selection
-  String _selectedLogistics = 'pickup'; // Logistics radio selection
-  String? _selectedCampaign;            // Campaign dropdown value
-  List<String> _campaignNames = [];     // Fetched from Firestore
-  bool _isLoadingCampaigns = true;      // Show loader for campaigns
-  bool _isPosting = false;              // Show loader on submit
+  String _selectedCondition = 'Good';
+  String _selectedLogistics = 'pickup';
+  String? _selectedCampaign;
+  List<String> _campaignNames = [];
+  bool _isLoadingCampaigns = true;
+  bool _isPosting = false;
 
-  // ── Brand colors ─────────────────────────────────────────────────────────
+  File? _receiptImage;
+  String? _receiptImageUrl;
+  bool _isUploadingReceipt = false;
+
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _bgGray = Color(0xFFF4F6F8);
 
-  // ── Condition options (matches design: New / Fair / Unused / Good) ───────
   final List<String> _conditions = ['New', 'Fair', 'Unused', 'Good'];
 
   @override
@@ -79,42 +66,56 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     _quantityCtrl.dispose();
     _descriptionCtrl.dispose();
     _addressCtrl.dispose();
+    _phoneCtrl.dispose();
+    _cnicCtrl.dispose();
     super.dispose();
   }
 
-  // ==========================================================================
-  // LOAD CAMPAIGNS FROM FIRESTORE
-  // ==========================================================================
   Future<void> _loadCampaigns() async {
     final names = await _firestoreService.getCampaignNames();
+    final requestedCampaigns = [
+      'School Uniforms & Tracksuits',
+      '🛏️ Comfortable Bedding for Children',
+      '🥫 Monthly Grocery & Food Support',
+      '❄️ Winter Ration & Essentials Drive',
+      '👕 Eid Clothes & Shoes Drive',
+      '🎁 Eid Gifts & Eidi for Children',
+      '🍽️ Eid Meals & Sweet Treats',
+      '🧴 Daily Essentials & Care Packages',
+      '📚 Education Support for Orphans',
+      'Others',
+    ];
+
+    final allCampaigns = [...names];
+    for (final campaign in requestedCampaigns) {
+      if (!allCampaigns.contains(campaign)) {
+        allCampaigns.add(campaign);
+      }
+    }
+
     setState(() {
-      _campaignNames = names;
-      _selectedCampaign = names.isNotEmpty ? names.first : null;
+      _campaignNames = allCampaigns;
+      _selectedCampaign = allCampaigns.isNotEmpty ? allCampaigns.first : null;
       _isLoadingCampaigns = false;
     });
   }
 
-  // ==========================================================================
-  // PICK IMAGE FROM CAMERA OR GALLERY
-  // ==========================================================================
   Future<void> _pickImage(ImageSource source) async {
     try {
       final XFile? picked = await _picker.pickImage(
         source: source,
-        imageQuality: 80, // Compress slightly for faster upload
+        imageQuality: 80,
       );
 
-      if (picked == null) return; // User cancelled
+      if (picked == null) return;
 
       final file = File(picked.path);
 
-      // Show uploading indicator
       setState(() {
         _pickedImages.add(file);
         _isUploadingImage = true;
       });
 
-      // Upload immediately to Cloudinary
       final url = await _cloudinaryService.uploadImage(file);
 
       setState(() {
@@ -133,7 +134,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     }
   }
 
-  // ── Bottom sheet to choose Camera or Gallery ──────────────────────────────
   void _showImageSourceSheet() {
     showModalBottomSheet(
       context: context,
@@ -161,7 +161,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
             const SizedBox(height: 16),
             Row(
               children: [
-                // Camera option
                 Expanded(
                   child: _sourceOption(
                     icon: Icons.camera_alt_rounded,
@@ -174,7 +173,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                   ),
                 ),
                 const SizedBox(width: 12),
-                // Gallery option
                 Expanded(
                   child: _sourceOption(
                     icon: Icons.photo_library_rounded,
@@ -225,11 +223,39 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // POST DONATION
-  // ==========================================================================
+  Future<void> _pickReceiptImage() async {
+    try {
+      final XFile? picked = await _picker.pickImage(
+        source: ImageSource.gallery,
+        imageQuality: 80,
+      );
+
+      if (picked == null) return;
+
+      final file = File(picked.path);
+
+      setState(() {
+        _receiptImage = file;
+        _isUploadingReceipt = true;
+      });
+
+      final url = await _cloudinaryService.uploadImage(file);
+
+      setState(() {
+        _isUploadingReceipt = false;
+        _receiptImageUrl = url;
+      });
+
+      if (url == null && mounted) {
+        _showSnack('Receipt upload failed. Please try again.', isError: true);
+      }
+    } catch (e) {
+      setState(() => _isUploadingReceipt = false);
+      _showSnack('Could not pick receipt image.', isError: true);
+    }
+  }
+
   Future<void> _postDonation() async {
-    // Validate form fields
     if (!_formKey.currentState!.validate()) return;
 
     if (_uploadedImageUrls.isEmpty && _pickedImages.isEmpty) {
@@ -244,7 +270,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
 
     setState(() => _isPosting = true);
 
-    // Save donation to Firestore
     final result = await _firestoreService.saveDonation(
       itemName: _itemNameCtrl.text,
       category: widget.selectedCategory,
@@ -254,6 +279,9 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
       logisticsType: _selectedLogistics,
       address: _addressCtrl.text,
       imageUrls: _uploadedImageUrls,
+      donorPhone: _phoneCtrl.text.trim(),
+      donorCnic: _cnicCtrl.text.trim(),
+      receiptImageUrl: _receiptImageUrl ?? '',
     );
 
     setState(() => _isPosting = false);
@@ -261,7 +289,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     if (!mounted) return;
 
     if (result['success'] == true) {
-      // Show success and go back to home
       _showSnack('Donation posted successfully! 🎉');
       await Future.delayed(const Duration(milliseconds: 1200));
       if (mounted) Navigator.popUntil(context, (route) => route.isFirst);
@@ -284,15 +311,10 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // BUILD UI
-  // ==========================================================================
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       backgroundColor: _bgGray,
-
-      // ── AppBar: "Cancel" (left) + "New Donation" (center) ─────────────
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
@@ -318,8 +340,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
         ),
         centerTitle: true,
       ),
-
-      // ── Body ─────────────────────────────────────────────────────────────
       body: Form(
         key: _formKey,
         child: SingleChildScrollView(
@@ -328,7 +348,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── "Add Photos" section ─────────────────────────────────────
               const Text(
                 'Add Photos',
                 style: TextStyle(
@@ -342,7 +361,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
 
               const SizedBox(height: 20),
 
-              // ── "Item Details" white card ─────────────────────────────────
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(20),
@@ -376,7 +394,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Item name field ────────────────────────────────
                     _buildFormField(
                       controller: _itemNameCtrl,
                       hint: 'e.g., winter jacket, canned food',
@@ -387,7 +404,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Quantity field ─────────────────────────────────
                     _fieldLabel('Quantity'),
                     const SizedBox(height: 8),
                     _buildFormField(
@@ -397,19 +413,16 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Category (pre-selected, shown as chip row) ─────
                     _fieldLabel('Category'),
                     const SizedBox(height: 10),
                     _buildCategoryChips(),
                     const SizedBox(height: 16),
 
-                    // ── Campaign Dropdown ──────────────────────────────
                     _fieldLabel('Campaign'),
                     const SizedBox(height: 8),
                     _buildCampaignDropdown(),
                     const SizedBox(height: 16),
 
-                    // ── Description ────────────────────────────────────
                     _fieldLabel('Description'),
                     const SizedBox(height: 8),
                     _buildFormField(
@@ -420,54 +433,109 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // ── Condition chips ────────────────────────────────
                     _fieldLabel('Conditions'),
                     const SizedBox(height: 10),
                     _buildConditionChips(),
                     const SizedBox(height: 16),
 
-                    // ── Logistics Options ──────────────────────────────
+                    // ── NEW: Donor Phone Number (mandatory) ────────────
+                    _fieldLabel('Phone Number'),
+                    const SizedBox(height: 8),
+                    _buildFormField(
+                      controller: _phoneCtrl,
+                      hint: 'e.g., 03XXXXXXXXX',
+                      keyboardType: TextInputType.phone,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(11),
+                      ],
+                      validator: (v) {
+                        final value = v?.trim() ?? '';
+                        if (value.isEmpty) return 'Phone number is required';
+                        if (!RegExp(r'^03\d{9}$').hasMatch(value)) {
+                          return 'Enter a valid 11-digit phone number';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
+                    // ── NEW: Donor CNIC (mandatory) ────────────────────
+                    _fieldLabel('CNIC Number'),
+                    const SizedBox(height: 8),
+                    _buildFormField(
+                      controller: _cnicCtrl,
+                      hint: 'e.g., 1234512345671',
+                      keyboardType: TextInputType.number,
+                      inputFormatters: [
+                        FilteringTextInputFormatter.digitsOnly,
+                        LengthLimitingTextInputFormatter(13),
+                      ],
+                      validator: (v) {
+                        final value = v?.trim() ?? '';
+                        if (value.isEmpty) return 'CNIC is required';
+                        if (!RegExp(r'^\d{13}$').hasMatch(value)) {
+                          return 'Enter a valid 13-digit CNIC';
+                        }
+                        return null;
+                      },
+                    ),
+                    const SizedBox(height: 16),
+
                     _fieldLabel('Delivery Method'),
                     const SizedBox(height: 8),
                     _buildLogisticsOptions(),
 
-                    // ── Address field (shown for all options) ──────────
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Icon(Icons.location_on_rounded,
-                            color: _green, size: 20),
-                        const SizedBox(width: 6),
-                        _fieldLabel('Address'),
-                      ],
-                    ),
-                    const SizedBox(height: 8),
-                    _buildFormField(
-                      controller: _addressCtrl,
-                      hint: 'Enter your address or pickup location',
-                      validator: (v) =>
-                      (_selectedLogistics != 'online' &&
-                          (v == null || v.trim().isEmpty))
-                          ? 'Address is required'
-                          : null,
-                    ),
+                    // ── CHANGED: Address only for Pickup, Receipt only
+                    // for Online (Courier), nothing for Desk-based ──────
+                    if (_selectedLogistics == 'pickup') ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Icon(Icons.location_on_rounded,
+                              color: _green, size: 20),
+                          const SizedBox(width: 6),
+                          _fieldLabel('Address'),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildFormField(
+                        controller: _addressCtrl,
+                        hint: 'Enter your address or pickup location',
+                        validator: (v) =>
+                        (_selectedLogistics == 'pickup' &&
+                            (v == null || v.trim().isEmpty))
+                            ? 'Address is required'
+                            : null,
+                      ),
+                    ] else if (_selectedLogistics == 'online') ...[
+                      const SizedBox(height: 14),
+                      Row(
+                        children: [
+                          Icon(Icons.receipt_long_outlined,
+                              color: _green, size: 20),
+                          const SizedBox(width: 6),
+                          _fieldLabel('Upload Receipt'),
+                        ],
+                      ),
+                      const SizedBox(height: 8),
+                      _buildReceiptUpload(),
+                    ],
                   ],
                 ),
               ),
 
               const SizedBox(height: 28),
 
-              // ── "Post Donations →" black button ─────────────────────────
               SizedBox(
                 width: double.infinity,
                 height: 56,
                 child: ElevatedButton(
                   onPressed: _isPosting ? null : _postDonation,
                   style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF1A1A1A),
+                    backgroundColor: _green,
                     foregroundColor: Colors.white,
-                    disabledBackgroundColor:
-                    const Color(0xFF1A1A1A).withOpacity(0.5),
+                    disabledBackgroundColor: _green.withOpacity(0.5),
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(32),
                     ),
@@ -508,16 +576,12 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Add Photos section
-  // ==========================================================================
   Widget _buildPhotoSection() {
     return SizedBox(
       height: 100,
       child: ListView(
         scrollDirection: Axis.horizontal,
         children: [
-          // ── Dashed "Upload Photos" circle (matches design) ─────────────
           GestureDetector(
             onTap: _showImageSourceSheet,
             child: Container(
@@ -529,9 +593,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                 border: Border.all(
                   color: _green,
                   width: 2,
-                  // Note: Flutter doesn't support dashed borders natively.
-                  // We simulate it with a dotted-looking border using
-                  // a CustomPaint alternative style.
                 ),
               ),
               child: _isUploadingImage
@@ -560,8 +621,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
               ),
             ),
           ),
-
-          // ── Uploaded image thumbnails ───────────────────────────────────
           ..._pickedImages.asMap().entries.map((entry) {
             final index = entry.key;
             final file = entry.value;
@@ -587,7 +646,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                     ),
                   ),
                 ),
-                // Uploading overlay
                 if (!uploaded)
                   Positioned.fill(
                     child: Container(
@@ -608,7 +666,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
                       ),
                     ),
                   ),
-                // Remove button
                 Positioned(
                   top: 2,
                   right: 12,
@@ -641,11 +698,65 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Category chips (pre-selected from previous screen)
-  // ==========================================================================
+  Widget _buildReceiptUpload() {
+    return GestureDetector(
+      onTap: _pickReceiptImage,
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: const Color(0xFFF0F0F0),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: _receiptImageUrl != null
+                ? _green
+                : Colors.grey.shade300,
+          ),
+        ),
+        child: _isUploadingReceipt
+            ? const Center(
+          child: SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(
+              color: Color(0xFF1B6B3A),
+              strokeWidth: 2,
+            ),
+          ),
+        )
+            : Row(
+          children: [
+            Icon(
+              _receiptImage != null
+                  ? Icons.check_circle_rounded
+                  : Icons.receipt_long_outlined,
+              color: _green,
+              size: 22,
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                _receiptImage != null
+                    ? 'Receipt selected — tap to change'
+                    : 'Upload courier receipt',
+                style: TextStyle(
+                  color: _receiptImage != null
+                      ? _green
+                      : Colors.grey[700],
+                  fontSize: 13,
+                  fontWeight: _receiptImage != null
+                      ? FontWeight.w600
+                      : FontWeight.normal,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildCategoryChips() {
-    // All categories — pre-selected one highlighted green
     final List<String> allCategories = [
       'Food', 'Clothes', 'Books', 'Toys', 'Furniture', 'Others'
     ];
@@ -679,9 +790,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Campaign Dropdown
-  // ==========================================================================
   Widget _buildCampaignDropdown() {
     if (_isLoadingCampaigns) {
       return const SizedBox(
@@ -702,8 +810,9 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
-        color: const Color(0xFFF0F0F0),
+        color: _green.withOpacity(0.06),
         borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: _green.withOpacity(0.35)),
       ),
       child: DropdownButtonHideUnderline(
         child: DropdownButton<String>(
@@ -725,9 +834,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Condition chips (New / Fair / Unused / Good)
-  // ==========================================================================
   Widget _buildConditionChips() {
     return Row(
       children: _conditions.map((condition) {
@@ -761,9 +867,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Logistics radio options
-  // ==========================================================================
   Widget _buildLogisticsOptions() {
     final options = [
       {
@@ -840,20 +943,19 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ==========================================================================
-  // WIDGET: Reusable form text field
-  // ==========================================================================
   Widget _buildFormField({
     required TextEditingController controller,
     required String hint,
     int maxLines = 1,
     TextInputType keyboardType = TextInputType.text,
+    List<TextInputFormatter>? inputFormatters,
     String? Function(String?)? validator,
   }) {
     return TextFormField(
       controller: controller,
       maxLines: maxLines,
       keyboardType: keyboardType,
+      inputFormatters: inputFormatters,
       validator: validator,
       style: const TextStyle(fontSize: 14, color: Color(0xFF1A1A1A)),
       decoration: InputDecoration(
@@ -861,7 +963,7 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
         hintStyle:
         const TextStyle(color: Colors.grey, fontSize: 13),
         filled: true,
-        fillColor: const Color(0xFFF0F0F0),
+        fillColor: Colors.white,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 14,
           vertical: 14,
@@ -889,7 +991,6 @@ class _DonationFormScreenState extends State<DonationFormScreen> {
     );
   }
 
-  // ── Reusable field label ──────────────────────────────────────────────────
   Widget _fieldLabel(String text) {
     return Text(
       text,

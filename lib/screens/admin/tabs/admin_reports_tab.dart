@@ -1,5 +1,5 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:fl_chart/fl_chart.dart';
+import 'package:fl_chart/fl_chart.dart' show AxisTitles, BarChart, BarChartAlignment, BarChartData, BarChartGroupData, BarChartRodData, BarTooltipItem, BarTouchData, BarTouchTooltipData, FlBorderData, FlGridData, FlLine, FlTitlesData, PieChart, PieChartData, PieChartSectionData, SideTitles;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/reports_controller.dart';
@@ -10,6 +10,7 @@ class AdminReportsTab extends StatelessWidget {
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _lightGreen = Color(0xFF2D8A52);
   static const Color _bg = Color(0xFFF4F6F8);
+
 
   @override
   Widget build(BuildContext context) {
@@ -29,24 +30,25 @@ class AdminReportsTab extends StatelessWidget {
             // ── Content ──────────────────────────────────────────────
             Expanded(
               child: Obx(() {
-                if (controller.isLoading.value) {
+                // Explicit reads — GetX ko pata chale kya track karna hai
+                final loading = controller.isLoading.value;
+                final activeTab = controller.selectedReportTab.value;
+
+                if (loading) {
                   return const Center(
                     child: CircularProgressIndicator(color: _green),
                   );
                 }
-                switch (controller.selectedReportTab.value) {
-                  case 0:
-                    return _DonationReport(controller: controller);
-                  case 1:
-                    return _FinancialReport(controller: controller);
-                  case 2:
-                    return _VolunteerReport(controller: controller);
-                  case 3:
-                    return _CampaignInventoryReport(
-                        controller: controller);
-                  default:
-                    return _DonationReport(controller: controller);
-                }
+
+                return IndexedStack(
+                  index: activeTab,
+                  children: [
+                    _DonationReport(controller: controller),
+                    _FinancialReport(controller: controller),
+                    _VolunteerReport(controller: controller),
+                    _CampaignInventoryReport(controller: controller),
+                  ],
+                );
               }),
             ),
           ],
@@ -98,44 +100,39 @@ class _Header extends StatelessWidget {
           const SizedBox(height: 12),
 
           // Filter chips
-          Obx(() => SizedBox(
-            height: 32,
-            child: ListView.builder(
-              scrollDirection: Axis.horizontal,
-              itemCount: controller.filters.length,
-              itemBuilder: (context, index) {
-                final filter = controller.filters[index];
-                final isSelected =
-                    controller.selectedFilter.value == filter;
-                return GestureDetector(
-                  onTap: () => controller.changeFilter(filter),
-                  child: Container(
-                    margin: const EdgeInsets.only(right: 8),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 14,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: isSelected
-                          ? Colors.white
-                          : Colors.white.withOpacity(0.2),
-                      borderRadius: BorderRadius.circular(20),
-                    ),
-                    child: Text(
-                      filter,
-                      style: TextStyle(
-                        fontSize: 12,
-                        color: isSelected ? _green : Colors.white,
-                        fontWeight: isSelected
-                            ? FontWeight.w700
-                            : FontWeight.normal,
+          Obx(() {
+            final selected = controller.selectedFilter.value; // ✅ Explicit read yahan
+            return SizedBox(
+              height: 32,
+              child: SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: Row(
+                  children: controller.filters.map((filter) {
+                    final isSelected = selected == filter;
+                    return GestureDetector(
+                      onTap: () => controller.changeFilter(filter),
+                      child: Container(
+                        margin: const EdgeInsets.only(right: 8),
+                        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                        decoration: BoxDecoration(
+                          color: isSelected ? Colors.white : Colors.white.withOpacity(0.2),
+                          borderRadius: BorderRadius.circular(20),
+                        ),
+                        child: Text(
+                          filter,
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: isSelected ? _green : Colors.white,
+                            fontWeight: isSelected ? FontWeight.w700 : FontWeight.normal,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                );
-              },
-            ),
-          )),
+                    );
+                  }).toList(),
+                ),
+              ),
+            );
+          }),
         ],
       ),
     );

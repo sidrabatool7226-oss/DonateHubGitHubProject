@@ -38,6 +38,17 @@ android {
     // Isay as it is rehne dein
     sourceSets {
         getByName("main").java.srcDirs("src/main/kotlin")
+        buildTypes {
+            release {
+                isMinifyEnabled = true
+                isShrinkResources = true
+
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+                )
+            }
+        }
     }
 }
 

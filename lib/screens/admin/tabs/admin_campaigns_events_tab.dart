@@ -4,6 +4,9 @@ import '../../../controllers/campaign_controller.dart';
 import '../../../controllers/event_controller.dart';
 import 'dart:io';
 import 'package:image_picker/image_picker.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
+import '../screens/event_participants_screen.dart';
+import '../../../controllers/admin_nav_controller.dart';
 
 class AdminCampaignsEventsTab extends StatefulWidget {
   const AdminCampaignsEventsTab({super.key});
@@ -18,17 +21,42 @@ class _AdminCampaignsEventsTabState
     with SingleTickerProviderStateMixin {
   late TabController _tabController;
 
+  Worker? _campaignEventsWorker;
+
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _blue = Color(0xFF1565C0);
 
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+
+    final nav = Get.find<AdminNavController>();
+
+    _tabController = TabController(
+      length: 2,
+      vsync: this,
+      initialIndex: nav.campaignEventsTabIndex.value,
+    );
+
+    _campaignEventsWorker = ever<int>(
+      nav.campaignEventsRequestId,
+          (_) {
+        final requestedIndex =
+            nav.campaignEventsTabIndex.value;
+
+        if (!_tabController.indexIsChanging &&
+            _tabController.index != requestedIndex) {
+          _tabController.animateTo(
+            requestedIndex,
+          );
+        }
+      },
+    );
   }
 
   @override
   void dispose() {
+    _campaignEventsWorker?.dispose();
     _tabController.dispose();
     super.dispose();
   }
@@ -47,7 +75,10 @@ class _AdminCampaignsEventsTabState
             Container(
               decoration: const BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [Color(0xFF1B6B3A), Color(0xFF2D8A52)],
+                  colors: [
+                    Color(0xFF1B6B3A),
+                    Color(0xFF2D8A52)
+                  ],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
@@ -287,7 +318,8 @@ class _CampaignCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final String title = data['title'] ?? '';
     final String description = data['description'] ?? '';
-    final double goal = (data['goalAmount'] ?? 0).toDouble();
+    final double goal =
+    (data['goalAmount'] ?? 0).toDouble();
     final double collected =
     (data['collectedAmount'] ?? 0).toDouble();
     final String imageUrl = data['image'] ?? '';
@@ -595,9 +627,8 @@ class _CampaignCard extends StatelessWidget {
                         label: 'Delete',
                         icon: Icons.delete_outline,
                         color: Colors.red,
-                        onTap: () =>
-                            _confirmDelete(context, docId,
-                                title, controller),
+                        onTap: () => _confirmDelete(
+                            context, docId, title, controller),
                       ),
                     ),
                   ],
@@ -758,8 +789,19 @@ class _EventCard extends StatelessWidget {
 
   String _monthName(String month) {
     const months = [
-      '', 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-      'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+      '',
+      'Jan',
+      'Feb',
+      'Mar',
+      'Apr',
+      'May',
+      'Jun',
+      'Jul',
+      'Aug',
+      'Sep',
+      'Oct',
+      'Nov',
+      'Dec'
     ];
     int m = int.tryParse(month) ?? 0;
     return m > 0 && m < 13 ? months[m] : '--';
@@ -873,7 +915,8 @@ class _EventCard extends StatelessWidget {
                                 color: Colors.white70,
                               ),
                               maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
+                              overflow:
+                              TextOverflow.ellipsis,
                             ),
                           ),
                         ],
@@ -890,7 +933,8 @@ class _EventCard extends StatelessWidget {
                     color: isActive
                         ? Colors.green[400]
                         : Colors.grey[400],
-                    borderRadius: BorderRadius.circular(20),
+                    borderRadius:
+                    BorderRadius.circular(20),
                   ),
                   child: Text(
                     isActive ? 'Active' : 'Inactive',
@@ -908,12 +952,14 @@ class _EventCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
               children: [
                 // Banner image
                 if (imageUrl.isNotEmpty) ...[
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius:
+                    BorderRadius.circular(12),
                     child: Image.network(
                       imageUrl,
                       height: 120,
@@ -945,7 +991,8 @@ class _EventCard extends StatelessWidget {
                       horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
                     color: const Color(0xFFE3F2FD),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius:
+                    BorderRadius.circular(10),
                   ),
                   child: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -973,6 +1020,66 @@ class _EventCard extends StatelessWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 12),
 
+                // NAYA — Participants button
+                Container(
+                  margin: const EdgeInsets.only(bottom: 10),
+                  child: GestureDetector(
+                    onTap: () => Get.to(
+                          () => EventParticipantsScreen(
+                        eventId: docId,
+                        eventTitle: title,
+                      ),
+                      transition:
+                      Transition.rightToLeft,
+                    ),
+                    child: StreamBuilder<QuerySnapshot>(
+                      stream: FirebaseFirestore.instance
+                          .collection('events')
+                          .doc(docId)
+                          .collection('participants')
+                          .snapshots(),
+                      builder: (context, snap) {
+                        final count =
+                            snap.data?.docs.length ?? 0;
+                        return Container(
+                          width: double.infinity,
+                          padding:
+                          const EdgeInsets.symmetric(
+                              vertical: 10),
+                          decoration: BoxDecoration(
+                            color:
+                            const Color(0xFFE3F2FD),
+                            borderRadius:
+                            BorderRadius.circular(10),
+                          ),
+                          child: Row(
+                            mainAxisAlignment:
+                            MainAxisAlignment.center,
+                            children: [
+                              const Icon(
+                                  Icons
+                                      .people_outline_rounded,
+                                  size: 15,
+                                  color:
+                                  Color(0xFF1565C0)),
+                              const SizedBox(width: 6),
+                              Text(
+                                '$count Volunteers Joined',
+                                style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color:
+                                    Color(0xFF1565C0),
+                                    fontWeight:
+                                    FontWeight.w600),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+
                 // Actions
                 Row(
                   children: [
@@ -996,7 +1103,10 @@ class _EventCard extends StatelessWidget {
                         icon: Icons.delete_outline,
                         color: Colors.red,
                         onTap: () => _confirmDelete(
-                            context, docId, title, controller),
+                            context,
+                            docId,
+                            title,
+                            controller),
                       ),
                     ),
                   ],
@@ -1057,7 +1167,8 @@ class _AddCampaignSheet extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _Handle(),
@@ -1065,7 +1176,8 @@ class _AddCampaignSheet extends StatelessWidget {
             const Text(
               'New Campaign',
               style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -1076,18 +1188,24 @@ class _AddCampaignSheet extends StatelessWidget {
                 height: 120,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE8F5E9),
-                  borderRadius: BorderRadius.circular(14),
+                  color:
+                  const Color(0xFFE8F5E9),
+                  borderRadius:
+                  BorderRadius.circular(14),
                   border: Border.all(
-                      color: _green.withOpacity(0.3)),
+                      color:
+                      _green.withOpacity(0.3)),
                 ),
-                child: controller.selectedImage.value !=
+                child: controller
+                    .selectedImage.value !=
                     null
                     ? ClipRRect(
                   borderRadius:
-                  BorderRadius.circular(14),
+                  BorderRadius.circular(
+                      14),
                   child: Image.file(
-                    controller.selectedImage.value!,
+                    controller
+                        .selectedImage.value!,
                     fit: BoxFit.cover,
                   ),
                 )
@@ -1101,7 +1219,8 @@ class _AddCampaignSheet extends StatelessWidget {
                         size: 32,
                         color: _green),
                     SizedBox(height: 6),
-                    Text('Add Banner Image',
+                    Text(
+                        'Add Banner Image',
                         style: TextStyle(
                             color: _green,
                             fontSize: 12)),
@@ -1112,65 +1231,82 @@ class _AddCampaignSheet extends StatelessWidget {
             const SizedBox(height: 14),
 
             _FormField2(
-                controller: controller.titleController,
+                controller:
+                controller.titleController,
                 label: 'Campaign Title *',
-                hint: 'e.g. Winter Clothes Drive'),
+                hint:
+                'e.g. Winter Clothes Drive'),
             const SizedBox(height: 10),
             _FormField2(
-                controller: controller.descController,
+                controller:
+                controller.descController,
                 label: 'Description *',
-                hint: 'What is this campaign about?',
+                hint:
+                'What is this campaign about?',
                 maxLines: 2),
             const SizedBox(height: 10),
             _FormField2(
-                controller: controller.goalController,
+                controller:
+                controller.goalController,
                 label: 'Goal Amount (Rs.) *',
                 hint: 'e.g. 50000',
-                keyboardType: TextInputType.number),
+                keyboardType:
+                TextInputType.number),
             const SizedBox(height: 10),
 
             GestureDetector(
-              onTap: () => _pickDate(context, controller),
+              onTap: () =>
+                  _pickDate(context, controller),
               child: AbsorbPointer(
                 child: _FormField2(
-                  controller: controller.endDateController,
+                  controller:
+                  controller.endDateController,
                   label: 'End Date',
                   hint: 'Select end date',
-                  suffixIcon: Icons.calendar_today_outlined,
+                  suffixIcon:
+                  Icons.calendar_today_outlined,
                 ),
               ),
             ),
             const SizedBox(height: 14),
 
             // Needs
-            const Text('Urgent Needs',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600)),
+            const Text(
+              'Urgent Needs',
+              style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.w600),
+            ),
             const SizedBox(height: 8),
             Obx(() => Wrap(
               spacing: 8,
               runSpacing: 8,
-              children:
-              controller.allNeeds.map((need) {
-                final sel =
-                controller.selectedNeeds.contains(need);
+              children: controller.allNeeds
+                  .map((need) {
+                final sel = controller
+                    .selectedNeeds
+                    .contains(need);
                 return GestureDetector(
                   onTap: () =>
                       controller.toggleNeed(need),
                   child: Container(
-                    padding: const EdgeInsets.symmetric(
-                        horizontal: 12, vertical: 6),
+                    padding:
+                    const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6),
                     decoration: BoxDecoration(
                       color: sel
                           ? _green
-                          : const Color(0xFFF4F6F8),
+                          : const Color(
+                          0xFFF4F6F8),
                       borderRadius:
-                      BorderRadius.circular(20),
+                      BorderRadius.circular(
+                          20),
                       border: Border.all(
                         color: sel
                             ? _green
-                            : Colors.grey.shade300,
+                            : Colors
+                            .grey.shade300,
                       ),
                     ),
                     child: Text(
@@ -1194,9 +1330,11 @@ class _AddCampaignSheet extends StatelessWidget {
             Obx(() => _SubmitBtn(
               label: 'Add Campaign',
               color: _green,
-              isLoading: controller.isLoading.value,
+              isLoading:
+              controller.isLoading.value,
               onTap: () async {
-                bool ok = await controller.addCampaign();
+                bool ok =
+                await controller.addCampaign();
                 if (ok && context.mounted) {
                   Navigator.pop(context);
                 }
@@ -1209,16 +1347,18 @@ class _AddCampaignSheet extends StatelessWidget {
   }
 
   Future<void> _pickDate(
-      BuildContext context, CampaignController c) async {
+      BuildContext context,
+      CampaignController c) async {
     DateTime? picked = await showDatePicker(
       context: context,
-      initialDate:
-      DateTime.now().add(const Duration(days: 7)),
+      initialDate: DateTime.now()
+          .add(const Duration(days: 7)),
       firstDate: DateTime.now(),
       lastDate: DateTime(2030),
       builder: (ctx, child) => Theme(
         data: Theme.of(ctx).copyWith(
-          colorScheme: const ColorScheme.light(
+          colorScheme:
+          const ColorScheme.light(
               primary: Color(0xFF1B6B3A)),
         ),
         child: child!,
@@ -1252,7 +1392,8 @@ class _AddEventSheet extends StatelessWidget {
       ),
       child: SingleChildScrollView(
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
+          crossAxisAlignment:
+          CrossAxisAlignment.start,
           mainAxisSize: MainAxisSize.min,
           children: [
             _Handle(),
@@ -1260,7 +1401,8 @@ class _AddEventSheet extends StatelessWidget {
             const Text(
               'New Event',
               style: TextStyle(
-                  fontSize: 18, fontWeight: FontWeight.bold),
+                  fontSize: 18,
+                  fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 16),
 
@@ -1271,16 +1413,21 @@ class _AddEventSheet extends StatelessWidget {
                 height: 110,
                 width: double.infinity,
                 decoration: BoxDecoration(
-                  color: const Color(0xFFE3F2FD),
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                      color: _blue.withOpacity(0.3)),
-                ),
-                child:
-                controller.selectedImage.value != null
-                    ? ClipRRect(
+                  color:
+                  const Color(0xFFE3F2FD),
                   borderRadius:
                   BorderRadius.circular(14),
+                  border: Border.all(
+                      color:
+                      _blue.withOpacity(0.3)),
+                ),
+                child: controller
+                    .selectedImage.value !=
+                    null
+                    ? ClipRRect(
+                  borderRadius:
+                  BorderRadius.circular(
+                      14),
                   child: Image.file(
                     controller
                         .selectedImage.value!,
@@ -1297,7 +1444,8 @@ class _AddEventSheet extends StatelessWidget {
                         size: 30,
                         color: _blue),
                     SizedBox(height: 6),
-                    Text('Add Event Banner',
+                    Text(
+                        'Add Event Banner',
                         style: TextStyle(
                             color: _blue,
                             fontSize: 12)),
@@ -1308,21 +1456,26 @@ class _AddEventSheet extends StatelessWidget {
             const SizedBox(height: 12),
 
             _FormField2(
-                controller: controller.titleController,
+                controller:
+                controller.titleController,
                 label: 'Event Title *',
-                hint: 'e.g. Eid Celebration at LSOH'),
+                hint:
+                'e.g. Eid Celebration at LSOH'),
             const SizedBox(height: 10),
             _FormField2(
-                controller: controller.descController,
+                controller:
+                controller.descController,
                 label: 'Description *',
                 hint: 'What will happen?',
                 maxLines: 2),
             const SizedBox(height: 10),
             _FormField2(
-              controller: controller.locationController,
+              controller:
+              controller.locationController,
               label: 'Location *',
               hint: 'e.g. LSOH, Wah Cantt',
-              suffixIcon: Icons.location_on_outlined,
+              suffixIcon:
+              Icons.location_on_outlined,
             ),
             const SizedBox(height: 10),
 
@@ -1331,15 +1484,16 @@ class _AddEventSheet extends StatelessWidget {
                 Expanded(
                   child: GestureDetector(
                     onTap: () =>
-                        controller.pickStartDate(context),
+                        controller.pickStartDate(
+                            context),
                     child: AbsorbPointer(
                       child: _FormField2(
-                        controller:
-                        controller.startDateController,
+                        controller: controller
+                            .startDateController,
                         label: 'Start Date *',
                         hint: 'DD/MM/YYYY',
-                        suffixIcon:
-                        Icons.calendar_today_outlined,
+                        suffixIcon: Icons
+                            .calendar_today_outlined,
                       ),
                     ),
                   ),
@@ -1348,15 +1502,16 @@ class _AddEventSheet extends StatelessWidget {
                 Expanded(
                   child: GestureDetector(
                     onTap: () =>
-                        controller.pickEndDate(context),
+                        controller.pickEndDate(
+                            context),
                     child: AbsorbPointer(
                       child: _FormField2(
-                        controller:
-                        controller.endDateController,
+                        controller: controller
+                            .endDateController,
                         label: 'End Date *',
                         hint: 'DD/MM/YYYY',
-                        suffixIcon:
-                        Icons.calendar_today_outlined,
+                        suffixIcon: Icons
+                            .calendar_today_outlined,
                       ),
                     ),
                   ),
@@ -1368,9 +1523,11 @@ class _AddEventSheet extends StatelessWidget {
             Obx(() => _SubmitBtn(
               label: 'Add Event',
               color: _blue,
-              isLoading: controller.isLoading.value,
+              isLoading:
+              controller.isLoading.value,
               onTap: () async {
-                bool ok = await controller.addEvent();
+                bool ok =
+                await controller.addEvent();
                 if (ok && context.mounted) {
                   Navigator.pop(context);
                 }
@@ -1391,18 +1548,25 @@ class _EmptyCampaigns extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment:
+        MainAxisAlignment.center,
         children: [
           Icon(Icons.campaign_outlined,
               size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('No campaigns yet',
-              style: TextStyle(
-                  fontSize: 16, color: Colors.grey[500])),
+          Text(
+            'No campaigns yet',
+            style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[500]),
+          ),
           const SizedBox(height: 6),
-          Text('Tap Add New to create one',
-              style: TextStyle(
-                  fontSize: 12, color: Colors.grey[400])),
+          Text(
+            'Tap Add New to create one',
+            style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400]),
+          ),
         ],
       ),
     );
@@ -1414,18 +1578,25 @@ class _EmptyEvents extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
+        mainAxisAlignment:
+        MainAxisAlignment.center,
         children: [
           Icon(Icons.event_outlined,
               size: 64, color: Colors.grey[300]),
           const SizedBox(height: 16),
-          Text('No events yet',
-              style: TextStyle(
-                  fontSize: 16, color: Colors.grey[500])),
+          Text(
+            'No events yet',
+            style: TextStyle(
+                fontSize: 16,
+                color: Colors.grey[500]),
+          ),
           const SizedBox(height: 6),
-          Text('Tap Add New to create one',
-              style: TextStyle(
-                  fontSize: 12, color: Colors.grey[400])),
+          Text(
+            'Tap Add New to create one',
+            style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[400]),
+          ),
         ],
       ),
     );
@@ -1444,7 +1615,8 @@ class _Handle extends StatelessWidget {
         height: 4,
         decoration: BoxDecoration(
           color: Colors.grey[300],
-          borderRadius: BorderRadius.circular(2),
+          borderRadius:
+          BorderRadius.circular(2),
         ),
       ),
     );
@@ -1471,11 +1643,15 @@ class _FormField2 extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
+      crossAxisAlignment:
+      CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(
-                fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: const TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w600),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -1485,27 +1661,37 @@ class _FormField2 extends StatelessWidget {
           decoration: InputDecoration(
             hintText: hint,
             hintStyle: TextStyle(
-                color: Colors.grey[400], fontSize: 13),
+                color: Colors.grey[400],
+                fontSize: 13),
             suffixIcon: suffixIcon != null
                 ? Icon(suffixIcon,
-                size: 16, color: Colors.grey[400])
+                size: 16,
+                color: Colors.grey[400])
                 : null,
             filled: true,
-            fillColor: const Color(0xFFF4F6F8),
-            contentPadding: const EdgeInsets.symmetric(
-                horizontal: 14, vertical: 10),
+            fillColor:
+            const Color(0xFFF4F6F8),
+            contentPadding:
+            const EdgeInsets.symmetric(
+                horizontal: 14,
+                vertical: 10),
             border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide:
-              BorderSide(color: Colors.grey[300]!),
+              borderRadius:
+              BorderRadius.circular(10),
+              borderSide: BorderSide(
+                  color: Colors.grey[300]!),
             ),
-            enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
-              borderSide:
-              BorderSide(color: Colors.grey[300]!),
+            enabledBorder:
+            OutlineInputBorder(
+              borderRadius:
+              BorderRadius.circular(10),
+              borderSide: BorderSide(
+                  color: Colors.grey[300]!),
             ),
-            focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(10),
+            focusedBorder:
+            OutlineInputBorder(
+              borderRadius:
+              BorderRadius.circular(10),
               borderSide: const BorderSide(
                   color: Color(0xFF1B6B3A)),
             ),
@@ -1540,20 +1726,27 @@ class _SubmitBtn extends StatelessWidget {
           backgroundColor: color,
           foregroundColor: Colors.white,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius:
+            BorderRadius.circular(12),
           ),
         ),
         child: isLoading
             ? const SizedBox(
           width: 20,
           height: 20,
-          child: CircularProgressIndicator(
-              color: Colors.white, strokeWidth: 2),
+          child:
+          CircularProgressIndicator(
+            color: Colors.white,
+            strokeWidth: 2,
+          ),
         )
-            : Text(label,
-            style: const TextStyle(
-                fontSize: 15,
-                fontWeight: FontWeight.w600)),
+            : Text(
+          label,
+          style: const TextStyle(
+              fontSize: 15,
+              fontWeight:
+              FontWeight.w600),
+        ),
       ),
     );
   }

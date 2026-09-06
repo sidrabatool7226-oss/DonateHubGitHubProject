@@ -74,6 +74,8 @@ class DonationService {
     required double amount,
     required String transactionId,
     required String screenshotUrl,
+    String donorPhone = '',
+    String donorCnic = '',
   }) async {
     try {
       final user = _auth.currentUser;
@@ -86,6 +88,8 @@ class DonationService {
         'status':        'pending',
         'transactionId': transactionId,
         'screenshotUrl': screenshotUrl,
+        'donorPhone':    donorPhone,
+        'donorCnic':     donorCnic,
         'timestamp':     FieldValue.serverTimestamp(),
       });
       return true;

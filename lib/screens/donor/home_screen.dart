@@ -159,55 +159,6 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
         ],
       ),
-
-      // Notification bell + Settings gear
-      actions: [
-        // Bell with badge
-        Stack(
-          children: [
-            IconButton(
-              icon: const Icon(Icons.notifications_outlined,
-                  color: Color(0xFF1A1A1A), size: 26),
-              onPressed: () {
-                // TODO: navigate to notifications
-              },
-            ),
-            Positioned(
-              right: 10,
-              top: 10,
-              child: Container(
-                width: 16,
-                height: 16,
-                decoration: BoxDecoration(
-                  color: Colors.red,
-                  shape: BoxShape.circle,
-                  border: Border.all(color: Colors.white, width: 1.5),
-                ),
-                child: const Center(
-                  child: Text(
-                    '1',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-          ],
-        ),
-
-        // Settings gear
-        IconButton(
-          icon: const Icon(Icons.settings_outlined,
-              color: Color(0xFF1A1A1A), size: 24),
-          onPressed: () {
-            // TODO: navigate to settings
-          },
-        ),
-        const SizedBox(width: 4),
-      ],
     );
   }
 
@@ -411,7 +362,9 @@ class _CampaignsRow extends StatelessWidget {
           return const SizedBox(
             height: 220,
             child: Center(
-              child: CircularProgressIndicator(color: Color(0xFF1B6B3A)),
+              child: CircularProgressIndicator(
+                color: Color(0xFF1B6B3A),
+              ),
             ),
           );
         }
@@ -452,7 +405,8 @@ class _CampaignsRow extends StatelessWidget {
             physics: const BouncingScrollPhysics(),
             itemCount: docs.length,
             itemBuilder: (context, index) {
-              final data = docs[index].data() as Map<String, dynamic>;
+              final data =
+              docs[index].data() as Map<String, dynamic>;
               return _CampaignCard(data: data);
             },
           ),
@@ -476,12 +430,14 @@ class _CampaignCard extends StatelessWidget {
     final String title = data['title'] ?? 'Campaign';
     final String description = data['description'] ?? '';
     final double goal = (data['goalAmount'] ?? 0).toDouble();
-    final double collected = (data['collectedAmount'] ?? 0).toDouble();
+    final double collected =
+    (data['collectedAmount'] ?? 0).toDouble();
     final String imageUrl = data['image'] ?? '';
     final String endDate = data['endDate'] ?? '';
 
     // Progress percentage (0.0 → 1.0)
-    final double progress = (goal > 0) ? (collected / goal).clamp(0.0, 1.0) : 0.0;
+    final double progress =
+    (goal > 0) ? (collected / goal).clamp(0.0, 1.0) : 0.0;
 
     return Container(
       width: 260,
@@ -502,16 +458,19 @@ class _CampaignCard extends StatelessWidget {
         children: [
           // Campaign image
           ClipRRect(
-            borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(16)),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(16),
+            ),
             child: imageUrl.isNotEmpty
                 ? Image.network(
               imageUrl,
               height: 120,
               width: double.infinity,
               fit: BoxFit.cover,
-              errorBuilder: (_, __, ___) => _imagePlaceholder(),
-              loadingBuilder: (_, child, loadingProgress) {
+              errorBuilder: (_, __, ___) =>
+                  _imagePlaceholder(),
+              loadingBuilder:
+                  (_, child, loadingProgress) {
                 if (loadingProgress == null) return child;
                 return _imagePlaceholder();
               },
@@ -523,7 +482,8 @@ class _CampaignCard extends StatelessWidget {
           Padding(
             padding: const EdgeInsets.all(12),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment:
+              CrossAxisAlignment.start,
               children: [
                 Text(
                   title,
@@ -549,11 +509,15 @@ class _CampaignCard extends StatelessWidget {
 
                 // Progress bar row
                 Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  mainAxisAlignment:
+                  MainAxisAlignment.spaceBetween,
                   children: [
                     const Text(
                       'Progress',
-                      style: TextStyle(fontSize: 11, color: Colors.grey),
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey,
+                      ),
                     ),
                     Text(
                       '\$${_fmt(collected)} / \$${_fmt(goal)}',
@@ -573,8 +537,10 @@ class _CampaignCard extends StatelessWidget {
                   child: LinearProgressIndicator(
                     value: progress,
                     minHeight: 7,
-                    backgroundColor: const Color(0xFFE0E0E0),
-                    valueColor: const AlwaysStoppedAnimation<Color>(
+                    backgroundColor:
+                    const Color(0xFFE0E0E0),
+                    valueColor:
+                    const AlwaysStoppedAnimation<Color>(
                       Color(0xFF1B6B3A),
                     ),
                   ),
@@ -585,7 +551,9 @@ class _CampaignCard extends StatelessWidget {
                   Text(
                     'Ends on $endDate',
                     style: const TextStyle(
-                        fontSize: 10, color: Colors.grey),
+                      fontSize: 10,
+                      color: Colors.grey,
+                    ),
                   ),
                 ],
               ],
@@ -655,8 +623,9 @@ class _DonationActionCard extends StatelessWidget {
         children: [
           // ── Big image (Screen B style) ─────────────────────────────
           ClipRRect(
-            borderRadius:
-            const BorderRadius.vertical(top: Radius.circular(20)),
+            borderRadius: const BorderRadius.vertical(
+              top: Radius.circular(20),
+            ),
             child: Image.asset(
               imageAsset,
               height: 175,
@@ -677,7 +646,8 @@ class _DonationActionCard extends StatelessWidget {
                 ),
                 child: Center(
                   child: Column(
-                    mainAxisAlignment: MainAxisAlignment.center,
+                    mainAxisAlignment:
+                    MainAxisAlignment.center,
                     children: [
                       Icon(
                         title == 'Donate Items'
@@ -703,7 +673,8 @@ class _DonationActionCard extends StatelessWidget {
 
           // ── Button below image ─────────────────────────────────────
           Padding(
-            padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+            padding:
+            const EdgeInsets.fromLTRB(16, 14, 16, 16),
             child: SizedBox(
               width: double.infinity,
               height: 48,
@@ -713,7 +684,8 @@ class _DonationActionCard extends StatelessWidget {
                   backgroundColor: buttonColor,
                   foregroundColor: Colors.white,
                   shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(30),
+                    borderRadius:
+                    BorderRadius.circular(30),
                   ),
                   elevation: 3,
                 ),
@@ -741,7 +713,10 @@ class _ImpactCard extends StatelessWidget {
   final FirebaseFirestore db;
   final String uid;
 
-  const _ImpactCard({required this.db, required this.uid});
+  const _ImpactCard({
+    required this.db,
+    required this.uid,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -754,14 +729,16 @@ class _ImpactCard extends StatelessWidget {
         int points = 0;
 
         if (snapshot.hasData && snapshot.data!.exists) {
-          final data = snapshot.data!.data() as Map<String, dynamic>;
+          final data =
+          snapshot.data!.data() as Map<String, dynamic>;
           donated = (data['totalDonated'] ?? 0).toDouble();
           donations = (data['totalDonations'] ?? 0) as int;
           points = (data['points'] ?? 0) as int;
         }
 
         return Container(
-          margin: const EdgeInsets.symmetric(horizontal: 16),
+          margin:
+          const EdgeInsets.symmetric(horizontal: 16),
           padding: const EdgeInsets.all(20),
           decoration: BoxDecoration(
             color: Colors.white,
@@ -775,7 +752,8 @@ class _ImpactCard extends StatelessWidget {
             ],
           ),
           child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+            crossAxisAlignment:
+            CrossAxisAlignment.start,
             children: [
               const Text(
                 'Your Impact This Year',
@@ -787,10 +765,12 @@ class _ImpactCard extends StatelessWidget {
               ),
               const SizedBox(height: 18),
               Row(
-                mainAxisAlignment: MainAxisAlignment.spaceAround,
+                mainAxisAlignment:
+                MainAxisAlignment.spaceAround,
                 children: [
                   _StatItem(
-                    value: '\$${donated.toStringAsFixed(0)}',
+                    value:
+                    '\$${donated.toStringAsFixed(0)}',
                     label: 'Donated',
                     color: const Color(0xFF1B6B3A),
                   ),
@@ -889,16 +869,22 @@ class _NavItem extends StatelessWidget {
       onTap: onTap,
       behavior: HitTestBehavior.opaque,
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        padding: const EdgeInsets.symmetric(
+          horizontal: 12,
+          vertical: 4,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
             // Active indicator dot
             AnimatedContainer(
-              duration: const Duration(milliseconds: 200),
+              duration:
+              const Duration(milliseconds: 200),
               width: isActive ? 5 : 0,
               height: isActive ? 5 : 0,
-              margin: EdgeInsets.only(bottom: isActive ? 3 : 0),
+              margin: EdgeInsets.only(
+                bottom: isActive ? 3 : 0,
+              ),
               decoration: BoxDecoration(
                 color: activeColor,
                 shape: BoxShape.circle,
@@ -908,16 +894,21 @@ class _NavItem extends StatelessWidget {
             Icon(
               icon,
               size: 26,
-              color: isActive ? activeColor : Colors.grey[400],
+              color: isActive
+                  ? activeColor
+                  : Colors.grey[400],
             ),
             const SizedBox(height: 3),
             Text(
               label,
               style: TextStyle(
                 fontSize: 11,
-                fontWeight:
-                isActive ? FontWeight.w600 : FontWeight.normal,
-                color: isActive ? activeColor : Colors.grey[400],
+                fontWeight: isActive
+                    ? FontWeight.w600
+                    : FontWeight.normal,
+                color: isActive
+                    ? activeColor
+                    : Colors.grey[400],
               ),
             ),
           ],
