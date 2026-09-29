@@ -1,3 +1,5 @@
+import org.jetbrains.kotlin.gradle.dsl.JvmTarget
+
 plugins {
     id("com.android.application")
     id("kotlin-android")
@@ -31,10 +33,9 @@ android {
         isCoreLibraryDesugaringEnabled = true
     }
 
-    kotlinOptions {
-        jvmTarget = "17"
-    }
-
+    // FIXED — Kotlin 2.3.20 mein purana kotlinOptions{jvmTarget=...} syntax
+    // error de raha tha ("Using 'jvmTarget: String' is an error"). Naya
+    // compilerOptions block neeche, android{} ke bahar, use hota hai.
     // Isay as it is rehne dein
     sourceSets {
         getByName("main").java.srcDirs("src/main/kotlin")
@@ -49,6 +50,14 @@ android {
                 )
             }
         }
+    }
+}
+
+// NEW — replaces the old android{ kotlinOptions{ jvmTarget = "17" } }
+// syntax, which Kotlin 2.3.20 no longer accepts.
+kotlin {
+    compilerOptions {
+        jvmTarget.set(JvmTarget.JVM_17)
     }
 }
 

@@ -7,10 +7,25 @@
     <uses-permission android:name="android.permission.CAMERA"/>
     <uses-permission android:name="android.permission.READ_MEDIA_IMAGES"/>
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+    <!-- NEW — required by geolocator so a Volunteer can optionally show
+         their current position on the pickup-task map. Only requested
+         at runtime when the Volunteer taps "Show my current location";
+         never used for background/continuous tracking. -->
+    <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION"/>
+    <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION"/>
     <application
         android:label="DonateHub"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- NEW — Google Maps Android SDK key, required for the embedded
+             pickup-location map on the Volunteer Task screen.
+             Replace YOUR_GOOGLE_MAPS_ANDROID_API_KEY with a real key
+             from Google Cloud Console (Maps SDK for Android enabled,
+             restricted to this app's package name + SHA-1). Never commit
+             an unrestricted key. -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="YOUR_GOOGLE_MAPS_ANDROID_API_KEY"/>
         <activity
             android:name=".MainActivity"
             android:exported="true"
@@ -20,10 +35,6 @@
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
             android:windowSoftInputMode="adjustResize">
-            <!-- Specifies an Android theme to apply to this Activity as soon as
-                 the Android process has started. This theme is visible to the user
-                 while the Flutter UI initializes. After that, this theme continues
-                 to determine the Window background behind the Flutter UI. -->
             <meta-data
                 android:name="io.flutter.embedding.android.NormalTheme"
                 android:resource="@style/NormalTheme" />
@@ -61,11 +72,6 @@
             android:name="flutterEmbedding"
             android:value="2" />
     </application>
-    <!-- Required to query activities that can process text, see:
-         https://developer.android.com/training/package-visibility and
-         https://developer.android.com/reference/android/content/Intent#ACTION_PROCESS_TEXT.
-
-         In particular, this is used by the Flutter engine in io.flutter.plugin.text.ProcessTextPlugin. -->
     <queries>
         <intent>
             <action android:name="android.intent.action.PROCESS_TEXT"/>
