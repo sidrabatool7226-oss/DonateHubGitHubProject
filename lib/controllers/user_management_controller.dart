@@ -95,7 +95,7 @@ class UserManagementController extends GetxController {
         'uid': newUid,
         'name': nameController.text.trim(),
         'email': emailController.text.trim().toLowerCase(),
-        'phone': phoneController.text.trim(),
+        'mobileNumber': phoneController.text.trim(), // FIXED — was 'phone'
         'role': 'manager',
         'status': 'active',
         'isProfileComplete': true,
@@ -147,7 +147,7 @@ class UserManagementController extends GetxController {
     try {
       await _db.collection('users').doc(docId).update({
         'name': editNameController.text.trim(),
-        'phone': editPhoneController.text.trim(),
+        'mobileNumber': editPhoneController.text.trim(), // FIXED — was 'phone'
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -172,23 +172,36 @@ class UserManagementController extends GetxController {
     }
   }
 
-  // ── Toggle Manager Status ────────────────────────────────────────────
-  Future<void> toggleManagerStatus(
-      String docId, bool isActive) async {
+  // ── Toggle User Status (CHANGED — now works for any role) ───────────
+  // Was 'toggleManagerStatus' and always wrote to the 'managers'
+  // collection too. Called for a Donor or Volunteer, that write would
+  // touch a collection they don't belong to — this is exactly why
+  // Activate/Deactivate never worked for them. It now only touches
+  // 'managers' when the account actually is one, using the exact same
+  // users/{docId}.status field AdminAccountStatusCard already uses for
+  // Donors and Volunteers elsewhere, so login-blocking behaves the same
+  // no matter which screen deactivated the account.
+  Future<void> toggleUserStatus(
+      String docId, String role, bool isActive) async {
     try {
       await _db.collection('users').doc(docId).update({
         'status': isActive ? 'inactive' : 'active',
       });
 
-      await _db.collection('managers').doc(docId).update({
-        'isActive': !isActive,
-      });
+      if (role == 'manager') {
+        await _db.collection('managers').doc(docId).update({
+          'isActive': !isActive,
+        });
+      }
+
+      final String roleLabel =
+      role.isNotEmpty ? '${role[0].toUpperCase()}${role.substring(1)}' : 'User';
 
       Get.snackbar(
         isActive ? 'Deactivated' : 'Activated',
         isActive
-            ? 'Manager account deactivated.'
-            : 'Manager account activated.',
+            ? '$roleLabel account deactivated.'
+            : '$roleLabel account activated.',
         backgroundColor:
         isActive ? Colors.red[50] : Colors.green[50],
         colorText:

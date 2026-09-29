@@ -19,6 +19,7 @@ dependencies:
   cloudinary_public: ^0.23.1
   url_launcher: ^6.3.1
   http: ^1.2.1
+  crypto: ^3.0.3 # NEW — for image-hash duplicate detection
   webview_flutter: ^4.0.0
   get: ^4.6.6
   get_storage: ^2.1.1
@@ -27,6 +28,10 @@ dependencies:
   google_mlkit_text_recognition: ^0.13.0   # ✅ ab andar hai
   path_provider: ^2.1.5                     # ✅ ab andar hai
   image_cropper: ^8.0.2
+  # ── NEW — Volunteer pickup-task map (embedded map + navigation) ──────
+  google_maps_flutter: ^2.9.0
+  geocoding: ^3.0.0
+  geolocator: ^13.0.1
 dev_dependencies:
   flutter_test:
     sdk: flutter

@@ -17,12 +17,12 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
 
   static const Color _green = Color(0xFF1B6B3A);
 
-  final List<Widget> _tabs = const [
-    VolunteerHomeTab(),
-    VolunteerTasksTab(),
-    VolunteerRewardsTab(),
-    VolunteerEventsTab(),
-    VolunteerProfileTab(),
+  late final List<Widget> _tabs = [
+    VolunteerHomeTab(onGoToProfile: () => setState(() => _currentIndex = 4)),
+    const VolunteerTasksTab(),
+    const VolunteerRewardsTab(),
+    const VolunteerEventsTab(),
+    VolunteerProfileTab(onGoHome: () => setState(() => _currentIndex = 0)),
   ];
 
   @override

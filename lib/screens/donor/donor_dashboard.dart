@@ -19,13 +19,13 @@ class _DonorDashboardState extends State<DonorDashboard> {
 
   static const Color _green = Color(0xFF1B6B3A);
 
-  final List<Widget> _tabs = const [
-    DonorHomeTab(),
-    DonorCampaignsTab(),
-    DonorDonationsTab(),
-    DonorRewardsTab(),
-    DonorImpactTab(),
-    DonorProfileTab(),
+  late final List<Widget> _tabs = [
+    DonorHomeTab(onGoToProfile: () => setState(() => _currentIndex = 5)),
+    const DonorCampaignsTab(),
+    const DonorDonationsTab(),
+    const DonorRewardsTab(),
+    const DonorImpactTab(),
+    DonorProfileTab(onGoHome: () => setState(() => _currentIndex = 0)),
   ];
 
   @override

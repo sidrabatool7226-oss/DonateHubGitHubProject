@@ -16,11 +16,14 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 class EmailService {
+  // ── Enabled — FIXED, was false ───────────────────────────────────────
+  static const bool _emailEnabled = true;
   // ── EmailJS Credentials — put your values here ─────────────────────
   static const String _serviceId = 'service_9leml6o';
   static const String _volunteerTemplateId = 'template_lzshhq3';
   static const String _donationTemplateId = 'template_tnovidb';
   static const String _publicKey = 'GNrxkMPshpR2Guxbu';
+  static const String _privateKey = 'CPmp4tJPzu-VEY0ggJZE2';
 
   static const String _apiUrl =
       'https://api.emailjs.com/api/v1.0/email/send';
@@ -107,6 +110,10 @@ class EmailService {
     required String templateId,
     required Map<String, String> params,
   }) async {
+    if (!_emailEnabled) {
+      print('EmailJS disabled — skipping send (quota protection).');
+      return true; // pretend success so calling code's "email sent" flag still gets set correctly
+    }
     try {
       final response = await http.post(
         Uri.parse(_apiUrl),
@@ -115,6 +122,7 @@ class EmailService {
           'service_id': _serviceId,
           'template_id': templateId,
           'user_id': _publicKey,
+          'accessToken': _privateKey,
           'template_params': params,
         }),
       );

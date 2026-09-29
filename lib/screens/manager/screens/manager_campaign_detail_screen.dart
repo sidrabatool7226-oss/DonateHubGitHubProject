@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import '../../../controllers/manager_campaigns_controller.dart';
+import 'fund_donation_detail_screen.dart'; // NEW — tap a donation to approve/reject
 
 class ManagerCampaignDetailScreen extends StatelessWidget {
   final String docId;
@@ -34,6 +35,14 @@ class ManagerCampaignDetailScreen extends StatelessWidget {
     final goal = _number(data['goalAmount']);
     final collected = _number(data['collectedAmount']);
 
+    // NEW — 'campaign' | 'project' | 'sponsorship'; drives label wording
+    // below so a child's card reads naturally instead of reusing
+    // Campaign-specific terms like "Goal Amount"/"Campaign Collected".
+    final String category = (data['category'] ?? 'campaign').toString();
+    final bool isSponsorship = category == 'sponsorship';
+    final String age = (data['age'] ?? '').toString();
+    final double remaining = (goal - collected).clamp(0, goal);
+
     final isActive = data['isActive'] == true;
 
     final needs = data['needs'] is List
@@ -48,9 +57,9 @@ class ManagerCampaignDetailScreen extends StatelessWidget {
         backgroundColor: _emerald,
         foregroundColor: Colors.white,
         elevation: 0,
-        title: const Text(
-          'Campaign Details',
-          style: TextStyle(
+        title: Text(
+          isSponsorship ? 'Sponsorship Details' : 'Campaign Details',
+          style: const TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.bold,
           ),
@@ -125,13 +134,13 @@ class ManagerCampaignDetailScreen extends StatelessWidget {
                 // Campaign Main Information
                 // ─────────────────────────────────────────────
                 _SectionCard(
-                  title: 'Campaign Information',
-                  icon: Icons.campaign_rounded,
+                  title: isSponsorship ? 'Child Information' : 'Campaign Information',
+                  icon: isSponsorship ? Icons.child_care_rounded : Icons.campaign_rounded,
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        title.isEmpty ? 'Untitled Campaign' : title,
+                        title.isEmpty ? (isSponsorship ? 'Unnamed Child' : 'Untitled Campaign') : title,
                         style: const TextStyle(
                           fontSize: 20,
                           fontWeight: FontWeight.bold,
@@ -158,21 +167,37 @@ class ManagerCampaignDetailScreen extends StatelessWidget {
                         value: isActive ? 'Active' : 'Inactive',
                       ),
 
-                      _DetailRow(
-                        label: 'End Date',
-                        value: endDate.isEmpty
-                            ? 'Not specified'
-                            : endDate,
-                      ),
+                      // NEW — a child has an Age, not an End Date (an open-
+                      // ended program, not a time-bound drive).
+                      if (isSponsorship)
+                        _DetailRow(
+                          label: 'Age',
+                          value: age.isEmpty ? 'Not specified' : age,
+                        )
+                      else
+                        _DetailRow(
+                          label: 'End Date',
+                          value: endDate.isEmpty
+                              ? 'Not specified'
+                              : endDate,
+                        ),
 
                       _DetailRow(
-                        label: 'Goal Amount',
+                        label: isSponsorship ? 'Full Sponsorship (Monthly)' : 'Goal Amount',
                         value: 'Rs. ${goal.toStringAsFixed(0)}',
                       ),
 
                       _DetailRow(
-                        label: 'Campaign Collected',
+                        label: isSponsorship ? 'Currently Covered (Monthly)' : 'Campaign Collected',
                         value: 'Rs. ${collected.toStringAsFixed(0)}',
+                      ),
+
+                      // NEW — the "remaining" figure requested for children,
+                      // shown for Campaign/Project too since it's a useful
+                      // number there as well and costs nothing extra.
+                      _DetailRow(
+                        label: isSponsorship ? 'Still Needed (Monthly)' : 'Remaining',
+                        value: 'Rs. ${remaining.toStringAsFixed(0)}',
                       ),
                     ],
                   ),
@@ -379,161 +404,239 @@ class _DonationCard extends StatelessWidget {
     final dateValue =
         donation['createdAt'] ?? donation['timestamp'];
 
-    return Container(
-      width: double.infinity,
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.035),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+    // NEW — sponsorship-specific info + the payment screenshot, so a
+    // Manager can see everything (donor, amount, categories, proof)
+    // right here without hunting through the separate pending queue.
+    final String donationTargetType =
+    (donation['donationTargetType'] ?? '').toString();
+    final bool isSponsorship = donationTargetType == 'sponsorship';
+    final String sponsorshipType =
+    (donation['sponsorshipType'] ?? '').toString();
+    final List sponsorshipCategories =
+    donation['selectedCategories'] is List ? donation['selectedCategories'] as List : const [];
+    final String proofUrl =
+    (donation['paymentProofUrl'] ?? '').toString();
+    final String docId = (donation['id'] ?? '').toString();
+
+    return GestureDetector(
+      onTap: docId.isEmpty
+          ? null
+          : () => Get.to(
+            () => FundDonationDetailScreen(docId: docId, data: donation),
+        transition: Transition.rightToLeft,
       ),
-      child: Column(
-        children: [
-          Row(
-            children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: isFund
-                      ? const Color(0xFFE6F5EE)
-                      : const Color(0xFFFFF3E4),
-                  borderRadius: BorderRadius.circular(11),
+      child: Container(
+        width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(16),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.035),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Column(
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: isFund
+                        ? const Color(0xFFE6F5EE)
+                        : const Color(0xFFFFF3E4),
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Icon(
+                    isFund
+                        ? Icons.payments_rounded
+                        : Icons.inventory_2_rounded,
+                    color: isFund
+                        ? _emerald
+                        : const Color(0xFFDB7C26),
+                    size: 19,
+                  ),
                 ),
-                child: Icon(
-                  isFund
-                      ? Icons.payments_rounded
-                      : Icons.inventory_2_rounded,
-                  color: isFund
-                      ? _emerald
-                      : const Color(0xFFDB7C26),
-                  size: 19,
-                ),
-              ),
 
-              const SizedBox(width: 10),
+                const SizedBox(width: 10),
 
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      isFund
-                          ? 'Fund Donation'
-                          : itemName,
-                      style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF14251E),
-                      ),
-                    ),
-
-                    const SizedBox(height: 3),
-
-                    if (category.isNotEmpty)
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
                       Text(
-                        category,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Colors.grey[500],
+                        isFund
+                            ? 'Fund Donation'
+                            : itemName,
+                        style: const TextStyle(
+                          fontSize: 13,
+                          fontWeight: FontWeight.bold,
+                          color: Color(0xFF14251E),
                         ),
                       ),
-                  ],
+
+                      const SizedBox(height: 3),
+
+                      if (category.isNotEmpty)
+                        Text(
+                          category,
+                          style: TextStyle(
+                            fontSize: 10.5,
+                            color: Colors.grey[500],
+                          ),
+                        ),
+                    ],
+                  ),
                 ),
+
+                _StatusBadge(status: status),
+              ],
+            ),
+
+            const SizedBox(height: 12),
+
+            const Divider(height: 1),
+
+            const SizedBox(height: 10),
+
+            // Donor information
+            FutureBuilder<Map<String, dynamic>?>(
+              future: controller.fetchDonorProfile(donorId),
+              builder: (context, snapshot) {
+                final profile = snapshot.data;
+
+                final nameFromProfile =
+                (profile?['name'] ?? '').toString();
+
+                final emailFromProfile =
+                (profile?['email'] ?? '').toString();
+
+                final phoneFromProfile =
+                (profile?['phone'] ?? profile?['contact'] ?? '')
+                    .toString();
+
+                final finalName = donorName.isNotEmpty
+                    ? donorName
+                    : nameFromProfile;
+
+                final finalEmail = donorEmail.isNotEmpty
+                    ? donorEmail
+                    : emailFromProfile;
+
+                return Column(
+                  children: [
+                    _DonorInfoRow(
+                      icon: Icons.person_outline_rounded,
+                      label: 'Donor',
+                      value: finalName.isEmpty
+                          ? 'Name not available'
+                          : finalName,
+                    ),
+
+                    if (finalEmail.isNotEmpty)
+                      _DonorInfoRow(
+                        icon: Icons.email_outlined,
+                        label: 'Email',
+                        value: finalEmail,
+                      ),
+
+                    if (phoneFromProfile.isNotEmpty)
+                      _DonorInfoRow(
+                        icon: Icons.phone_outlined,
+                        label: 'Phone',
+                        value: phoneFromProfile,
+                      ),
+                  ],
+                );
+              },
+            ),
+
+            const SizedBox(height: 6),
+
+            if (isFund)
+              _DonorInfoRow(
+                icon: Icons.payments_outlined,
+                label: 'Amount',
+                value: 'Rs. ${amount.toStringAsFixed(0)}',
               ),
 
-              _StatusBadge(status: status),
+            _DonorInfoRow(
+              icon: Icons.calendar_today_outlined,
+              label: 'Date',
+              value: controller.formatDate(dateValue),
+            ),
+
+            if (isFund &&
+                (donation['paymentMethod'] ?? '').toString().isNotEmpty)
+              _DonorInfoRow(
+                icon: Icons.account_balance_wallet_outlined,
+                label: 'Payment',
+                value: donation['paymentMethod'].toString(),
+              ),
+
+            // NEW — sponsorship type (Full/Partial) + selected categories
+            if (isSponsorship && sponsorshipType.isNotEmpty) ...[
+              const SizedBox(height: 6),
+              _DonorInfoRow(
+                icon: Icons.favorite_outline_rounded,
+                label: 'Type',
+                value: sponsorshipType == 'full' ? 'Full Sponsorship' : 'Partial Sponsorship',
+              ),
             ],
-          ),
-
-          const SizedBox(height: 12),
-
-          const Divider(height: 1),
-
-          const SizedBox(height: 10),
-
-          // Donor information
-          FutureBuilder<Map<String, dynamic>?>(
-            future: controller.fetchDonorProfile(donorId),
-            builder: (context, snapshot) {
-              final profile = snapshot.data;
-
-              final nameFromProfile =
-              (profile?['name'] ?? '').toString();
-
-              final emailFromProfile =
-              (profile?['email'] ?? '').toString();
-
-              final phoneFromProfile =
-              (profile?['phone'] ?? profile?['contact'] ?? '')
-                  .toString();
-
-              final finalName = donorName.isNotEmpty
-                  ? donorName
-                  : nameFromProfile;
-
-              final finalEmail = donorEmail.isNotEmpty
-                  ? donorEmail
-                  : emailFromProfile;
-
-              return Column(
-                children: [
-                  _DonorInfoRow(
-                    icon: Icons.person_outline_rounded,
-                    label: 'Donor',
-                    value: finalName.isEmpty
-                        ? 'Name not available'
-                        : finalName,
+            if (isSponsorship && sponsorshipCategories.isNotEmpty) ...[
+              const SizedBox(height: 8),
+              Wrap(
+                spacing: 6,
+                runSpacing: 6,
+                children: sponsorshipCategories
+                    .map((c) => Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFE6F5EE),
+                    borderRadius: BorderRadius.circular(20),
                   ),
+                  child: Text(
+                    c.toString(),
+                    style: const TextStyle(fontSize: 9.5, color: _emerald, fontWeight: FontWeight.w600),
+                  ),
+                ))
+                    .toList(),
+              ),
+            ],
 
-                  if (finalEmail.isNotEmpty)
-                    _DonorInfoRow(
-                      icon: Icons.email_outlined,
-                      label: 'Email',
-                      value: finalEmail,
-                    ),
-
-                  if (phoneFromProfile.isNotEmpty)
-                    _DonorInfoRow(
-                      icon: Icons.phone_outlined,
-                      label: 'Phone',
-                      value: phoneFromProfile,
-                    ),
-                ],
-              );
-            },
-          ),
-
-          const SizedBox(height: 6),
-
-          if (isFund)
-            _DonorInfoRow(
-              icon: Icons.payments_outlined,
-              label: 'Amount',
-              value: 'Rs. ${amount.toStringAsFixed(0)}',
-            ),
-
-          _DonorInfoRow(
-            icon: Icons.calendar_today_outlined,
-            label: 'Date',
-            value: controller.formatDate(dateValue),
-          ),
-
-          if (isFund &&
-              (donation['paymentMethod'] ?? '').toString().isNotEmpty)
-            _DonorInfoRow(
-              icon: Icons.account_balance_wallet_outlined,
-              label: 'Payment',
-              value: donation['paymentMethod'].toString(),
-            ),
-        ],
+            // NEW — payment screenshot, previously only visible in the
+            // separate pending-approval queue, not here.
+            if (isFund && proofUrl.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(10),
+                child: Image.network(
+                  proofUrl,
+                  height: 110,
+                  width: double.infinity,
+                  fit: BoxFit.cover,
+                  errorBuilder: (_, __, ___) => Container(
+                    height: 60,
+                    color: const Color(0xFFF4FAF7),
+                    alignment: Alignment.center,
+                    child: Text('Screenshot unavailable', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Text(
+                status == 'pending' ? 'Tap to view full details & approve' : 'Tap to view full details',
+                style: TextStyle(fontSize: 9.5, color: Colors.grey[400]),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

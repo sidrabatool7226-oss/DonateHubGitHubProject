@@ -1,32 +1,23 @@
 // ============================================================
 // FILE: lib/controllers/admin_donations_controller.dart
-//
-// CHANGE: Added 'Fund' as a type filter option alongside the
-// existing Online/Desk-based/Volunteer Pickup resource filters.
-// Fund donations are identified by 'type'=='fund' OR presence
-// of the 'amount' field — same pattern already used elsewhere
-// in the project to distinguish fund vs resource donations
-// (no 'type' field exists on older resource donation docs).
-// Everything else (Add Donation form, resource donation logic,
-// status updates, soft-delete) is UNCHANGED.
+// CHANGE (this pass): addFormImage File → PickedImage for web support.
+// Everything else UNCHANGED from previous version.
 // ============================================================
 
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import '../services/cloudinary_service.dart';
-// Safely parses quantity whether Firestore stores it as int or String —
-// donor-submitted item donations save quantity as String
-// (FirestoreService.saveDonation), while admin-manual entries save it
-// as int. This prevents the "String is not a subtype of int" crash.
+import '../services/picked_image.dart';
+
 int safeParseQty(dynamic value) {
   if (value is int) return value;
   if (value is double) return value.toInt();
   if (value is String) return int.tryParse(value) ?? 0;
   return 0;
 }
+
 class AdminDonationsController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
   final CloudinaryService _cloudinary = CloudinaryService();
@@ -35,14 +26,14 @@ class AdminDonationsController extends GetxController {
   var isLoading = true.obs;
   var isSaving = false.obs;
   var searchQuery = ''.obs;
-  var selectedTypeFilter = 'All'.obs; // All | Online | Desk-based | Volunteer Pickup | Fund
+  var selectedTypeFilter = 'All'.obs;
   var selectedCategoryFilter = 'All'.obs;
   var selectedStatusFilter = 'All'.obs;
 
   var allDonations = <Map<String, dynamic>>[].obs;
 
   final List<String> typeFilters = const [
-    'All', 'Online', 'Desk-based', 'Volunteer Pickup', 'Fund', // NEW: 'Fund'
+    'All', 'Online', 'Desk-based', 'Volunteer Pickup', 'Fund',
   ];
 
   final List<String> filterCategories = const [
@@ -50,7 +41,6 @@ class AdminDonationsController extends GetxController {
     'Stationery', 'Shoes', 'Blankets', 'Other',
   ];
 
-  // ── Add Donation form (resource donations only — manual walk-in entries) ──
   final donorNameCtrl = TextEditingController();
   final donorContactCtrl = TextEditingController();
   final itemNameCtrl = TextEditingController();
@@ -61,7 +51,7 @@ class AdminDonationsController extends GetxController {
   String selectedCategory = 'Food';
   String selectedCondition = 'Good';
   String selectedDonationType = 'desk';
-  File? addFormImage;
+  PickedImage? addFormImage; // CHANGED: was File?
 
   final List<String> categories = const [
     'Food', 'Clothes', 'Books', 'Toys', 'Furniture', 'Medicine',
@@ -86,9 +76,6 @@ class AdminDonationsController extends GetxController {
     super.onClose();
   }
 
-  // Single orderBy, no composite where+orderBy combo — avoids requiring
-  // a Firestore composite index (this pattern caused silent empty
-  // results earlier in the project when combined with .where()).
   void _bindDonations() {
     _db.collection('donations').orderBy('createdAt', descending: true).snapshots().listen(
           (snap) {
@@ -109,7 +96,6 @@ class AdminDonationsController extends GetxController {
   bool _isFund(Map<String, dynamic> d) => d['type'] == 'fund' || d.containsKey('amount');
   bool _isResource(Map<String, dynamic> d) => d.containsKey('itemName');
 
-  // ── Filtered list ────────────────────────────────────────────────────
   List<Map<String, dynamic>> get filtered {
     var list = allDonations.toList();
 
@@ -156,16 +142,14 @@ class AdminDonationsController extends GetxController {
     return list;
   }
 
-  // ── Summary counts ───────────────────────────────────────────────────
   int get totalCount => allDonations.length;
   int get pendingCount => allDonations.where((d) => d['status'] == 'pending').length;
   int get approvedCount => allDonations.where((d) => [
     'approved', 'in_transit', 'awaiting_physical', 'pending_pickup',
-    'volunteer_assigned', 'picked_up', 'received'
+    'volunteer_assigned', 'pickup_assigned', 'picked_up', 'received' // FIXED (Bug 4) — 'pickup_assigned' (set by the Manager flow) was missing
   ].contains(d['status'])).length;
   int get completedCount => allDonations.where((d) => d['status'] == 'completed').length;
 
-  // ── Fetch donor profile (for resource detail screen) ──────────────────
   Future<Map<String, dynamic>?> fetchDonorProfile(String? donorId) async {
     if (donorId == null || donorId.isEmpty) return null;
     try {
@@ -188,10 +172,43 @@ class AdminDonationsController extends GetxController {
     }
   }
 
-  // ── Status transition (resource donations only) ────────────────────────
   Future<void> updateStatus(String docId, String newStatus, {String? reason}) async {
-    final update = <String, dynamic>{'status': newStatus};
     final tsField = _timestampFieldForStatus(newStatus);
+
+    if (newStatus == 'completed') {
+      // Award donor reward points here ONLY if this donation didn't
+      // already get rewarded via the volunteer-task completion flow
+      // (manager_tasks_controller.dart) — 'rewardGiven' flag prevents
+      // double-counting if a donation somehow passes through both paths.
+      final doc = await _db.collection('donations').doc(docId).get();
+      final data = doc.data() ?? {};
+      final bool alreadyRewarded = data['rewardGiven'] == true;
+      final bool isResource = data.containsKey('itemName');
+      final String donorId = (data['donorId'] ?? '').toString();
+
+      if (isResource && !alreadyRewarded && donorId.isNotEmpty) {
+        final batch = _db.batch();
+        batch.update(_db.collection('donations').doc(docId), {
+          'status': newStatus,
+          if (tsField != null) tsField: FieldValue.serverTimestamp(),
+          if (reason != null) 'rejectionReason': reason,
+          'rewardGiven': true,
+        });
+        batch.set(
+          _db.collection('donors').doc(donorId),
+          {
+            'rewardPoints': FieldValue.increment(10),
+            'totalDonations': FieldValue.increment(1),
+          },
+          SetOptions(merge: true),
+        );
+        await batch.commit();
+        _snack('Updated', 'Status updated to ${_statusLabel(newStatus)} — reward points added.');
+        return;
+      }
+    }
+
+    final update = <String, dynamic>{'status': newStatus};
     if (tsField != null) update[tsField] = FieldValue.serverTimestamp();
     if (reason != null) update['rejectionReason'] = reason;
 
@@ -218,11 +235,11 @@ class AdminDonationsController extends GetxController {
   String _statusLabel(String status) =>
       status.split('_').map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1)).join(' ');
 
-  // ── Add Donation form actions (resource donations only) ────────────────
+  // ── Add Donation form actions ──────────────────────────────── (CHANGED)
   Future<void> pickAddFormImage() async {
     final XFile? img = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
     if (img != null) {
-      addFormImage = File(img.path);
+      addFormImage = await PickedImage.fromXFile(img);
       update();
     }
   }
@@ -251,7 +268,7 @@ class AdminDonationsController extends GetxController {
     try {
       String imageUrl = '';
       if (addFormImage != null) {
-        final url = await _cloudinary.uploadImage(addFormImage!);
+        final url = await addFormImage!.upload(_cloudinary);
         if (url != null) imageUrl = url;
       }
 

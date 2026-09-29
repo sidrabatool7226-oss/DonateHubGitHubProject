@@ -17,7 +17,7 @@ import '../screens/donation_full_detail_screen.dart';
 import '../../manager/screens/fund_donation_detail_screen.dart';
 import '../../../controllers/admin_donations_controller.dart' show safeParseQty;
 import '../../../controllers/financial_summary_controller.dart';
-
+import '../../../widgets/picked_image_preview.dart';
 class AdminInventoryTab extends StatelessWidget {
   const AdminInventoryTab({super.key});
 
@@ -482,7 +482,7 @@ class _AddDonationSheet extends StatelessWidget {
                   height: 110, width: double.infinity,
                   decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(14), border: Border.all(color: _green.withOpacity(0.3))),
                   child: c.addFormImage != null
-                      ? ClipRRect(borderRadius: BorderRadius.circular(14), child: Image.file(c.addFormImage!, fit: BoxFit.cover))
+                      ? ClipRRect(borderRadius: BorderRadius.circular(14), child: buildPickedImagePreview(c.addFormImage!, fit: BoxFit.cover))
                       : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
                     Icon(Icons.add_photo_alternate_outlined, color: _green, size: 28),
                     SizedBox(height: 6),

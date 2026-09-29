@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/utilization_controller.dart';
-
+import '../../../widgets/picked_image_preview.dart';
 class CreateUtilizationScreen extends StatelessWidget {
   CreateUtilizationScreen({super.key});
 
@@ -474,9 +474,8 @@ class CreateUtilizationScreen extends StatelessWidget {
                                         .circular(10),
                                     image:
                                     DecorationImage(
-                                      image: FileImage(
-                                          controller
-                                              .impactImages[i]),
+                                      image: pickedImageProvider(
+                                          controller.impactImages[i]),
                                       fit: BoxFit.cover,
                                     ),
                                   ),

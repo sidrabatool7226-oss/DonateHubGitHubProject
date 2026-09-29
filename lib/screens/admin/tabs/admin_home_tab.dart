@@ -7,7 +7,8 @@ import '../../../controllers/admin_nav_controller.dart';
 import '../screens/admin_profile_screen.dart';
 import '../screens/admin_donors_list_screen.dart';
 import '../screens/admin_volunteers_list_screen.dart';
-import '../screens/admin_notifications_screen.dart';
+import '../screens/admin_online_volunteers_screen.dart'; // NEW
+import '../screens/shared/notifications_screen.dart';
 import '../screens/admin_donations_list_screen.dart';
 import '../screens/admin_donation_details_screen.dart';
 
@@ -17,6 +18,19 @@ class AdminHomeTab extends StatelessWidget {
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _lightGreen = Color(0xFF2D8A52);
   static const Color _bg = Color(0xFFF4F6F8);
+
+  bool _isApprovedVolunteer(Map<String, dynamic> data) {
+    final status = (data['status'] ?? '').toString().trim().toLowerCase();
+    final verificationStage = (data['verificationStage'] ?? '').toString().trim().toLowerCase();
+    return verificationStage == 'verified' || status == 'approved' || status == 'verified' || status == 'active';
+  }
+
+  // CHANGED — matches AdminDonationsListMode.approvedAndCompleted exactly,
+  // so the number on the card is always the same number you see when you tap it.
+  bool _isApprovedOrCompletedDonation(Map<String, dynamic> data) {
+    final status = (data['status'] ?? '').toString().trim().toLowerCase();
+    return status == 'approved' || status == 'completed' || status == 'complete';
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -28,23 +42,23 @@ class AdminHomeTab extends StatelessWidget {
         child: Column(
           children: [
             _buildHeader(context),
+            // CHANGED — whole body now scrolls as one page (like the web
+            // version) instead of only "Recent Donations" scrolling inside
+            // its own confined box.
             Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                 child: Column(
                   children: [
-                    Expanded(
-                      flex: 5,
-                      child: _StatsGrid(db: db),
+                    _StatsGrid(
+                      db: db,
+                      isApprovedVolunteer: _isApprovedVolunteer,
+                      isApprovedOrCompletedDonation: _isApprovedOrCompletedDonation,
                     ),
                     const SizedBox(height: 12),
                     const _QuickActions(),
                     const SizedBox(height: 12),
-                    Expanded(
-                      flex: 3,
-                      child: _RecentActivity(db: db),
-                    ),
-                    const SizedBox(height: 8),
+                    _RecentActivity(db: db),
                   ],
                 ),
               ),
@@ -90,45 +104,31 @@ class AdminHomeTab extends StatelessWidget {
               children: [
                 Text(
                   'Admin Dashboard',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 17,
-                    fontWeight: FontWeight.bold,
-                  ),
+                  style: TextStyle(color: Colors.white, fontSize: 17, fontWeight: FontWeight.bold),
                 ),
                 Text(
                   'Little Smiles Orphan Home',
-                  style: TextStyle(
-                    color: Colors.white70,
-                    fontSize: 12,
-                  ),
+                  style: TextStyle(color: Colors.white70, fontSize: 12),
                 ),
               ],
             ),
           ),
           GestureDetector(
             onTap: () => Get.to(
-                  () => AdminNotificationsScreen(adminId: uid),
+                  () => const NotificationsScreen(accentColor: _green),
               transition: Transition.rightToLeft,
             ),
             child: Container(
               width: 38,
               height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
               child: Stack(
                 alignment: Alignment.center,
                 children: [
-                  const Icon(
-                    Icons.notifications_outlined,
-                    color: Colors.white,
-                    size: 20,
-                  ),
+                  const Icon(Icons.notifications_outlined, color: Colors.white, size: 20),
                   Positioned(
-                    top: 6,
-                    right: 6,
+                    top: 2,
+                    right: 2,
                     child: StreamBuilder<QuerySnapshot>(
                       stream: FirebaseFirestore.instance
                           .collection('notifications')
@@ -137,17 +137,18 @@ class AdminHomeTab extends StatelessWidget {
                           .snapshots(),
                       builder: (context, snap) {
                         final count = snap.data?.docs.length ?? 0;
-
-                        if (count == 0) {
-                          return const SizedBox();
-                        }
-
+                        if (count == 0) return const SizedBox();
+                        final String label = count > 9 ? '9+' : count.toString();
                         return Container(
-                          width: 8,
-                          height: 8,
-                          decoration: const BoxDecoration(
+                          padding: const EdgeInsets.symmetric(horizontal: 4),
+                          constraints: const BoxConstraints(minWidth: 16, minHeight: 16),
+                          decoration: BoxDecoration(
                             color: Colors.red,
-                            shape: BoxShape.circle,
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: const Color(0xFF1B6B3A), width: 1.5),
+                          ),
+                          child: Center(
+                            child: Text(label, style: const TextStyle(color: Colors.white, fontSize: 9, fontWeight: FontWeight.bold, height: 1.3)),
                           ),
                         );
                       },
@@ -166,15 +167,8 @@ class AdminHomeTab extends StatelessWidget {
             child: Container(
               width: 38,
               height: 38,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.15),
-                shape: BoxShape.circle,
-              ),
-              child: const Icon(
-                Icons.person_outline_rounded,
-                color: Colors.white,
-                size: 20,
-              ),
+              decoration: BoxDecoration(color: Colors.white.withOpacity(0.15), shape: BoxShape.circle),
+              child: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 20),
             ),
           ),
         ],
@@ -188,27 +182,14 @@ class AdminHomeTab extends StatelessWidget {
 // ==========================================================================
 class _StatsGrid extends StatelessWidget {
   final FirebaseFirestore db;
+  final bool Function(Map<String, dynamic>) isApprovedVolunteer;
+  final bool Function(Map<String, dynamic>) isApprovedOrCompletedDonation;
 
   const _StatsGrid({
     required this.db,
+    required this.isApprovedVolunteer,
+    required this.isApprovedOrCompletedDonation,
   });
-
-  bool _isApprovedVolunteer(Map<String, dynamic> data) {
-    final status = (data['status'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
-
-    final verificationStage = (data['verificationStage'] ?? '')
-        .toString()
-        .trim()
-        .toLowerCase();
-
-    return verificationStage == 'verified' ||
-        status == 'approved' ||
-        status == 'verified' ||
-        status == 'active';
-  }
 
   @override
   Widget build(BuildContext context) {
@@ -217,39 +198,32 @@ class _StatsGrid extends StatelessWidget {
       crossAxisSpacing: 12,
       mainAxisSpacing: 12,
       childAspectRatio: 1.45,
+      shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       children: [
         _StatCard(
-          stream: db
-              .collection('users')
-              .where('role', isEqualTo: 'donor')
-              .snapshots(),
+          stream: db.collection('users').where('role', isEqualTo: 'donor').snapshots(),
           label: 'Total Donors',
           icon: Icons.favorite_rounded,
           color: const Color(0xFF1565C0),
           lightColor: const Color(0xFFE3F2FD),
-          onTap: () => Get.to(
-                () => const AdminDonorsListScreen(),
-            transition: Transition.rightToLeft,
-          ),
+          onTap: () => Get.to(() => const AdminDonorsListScreen(), transition: Transition.rightToLeft),
         ),
         _StatCard(
-          stream: db
-              .collection('users')
-              .where('role', isEqualTo: 'volunteer')
-              .snapshots(),
-          countFilter: _isApprovedVolunteer,
+          stream: db.collection('users').where('role', isEqualTo: 'volunteer').snapshots(),
+          countFilter: isApprovedVolunteer,
           label: 'Volunteers',
           icon: Icons.groups_rounded,
           color: const Color(0xFF6A1B9A),
           lightColor: const Color(0xFFF3E5F5),
-          onTap: () => Get.to(
-                () => const AdminVolunteersListScreen(),
-            transition: Transition.rightToLeft,
-          ),
+          onTap: () => Get.to(() => const AdminVolunteersListScreen(), transition: Transition.rightToLeft),
         ),
         _StatCard(
+          // CHANGED — countFilter added so this matches the 39 you see
+          // when you tap into "Approved & Completed", instead of counting
+          // every donation regardless of status.
           stream: db.collection('donations').snapshots(),
+          countFilter: isApprovedOrCompletedDonation,
           label: 'Total Donations',
           icon: Icons.volunteer_activism_rounded,
           color: const Color(0xFF1B6B3A),
@@ -263,50 +237,35 @@ class _StatsGrid extends StatelessWidget {
           ),
         ),
         _StatCard(
-          stream: db
-              .collection('donations')
-              .where('status', isEqualTo: 'pending')
-              .snapshots(),
+          stream: db.collection('donations').where('status', isEqualTo: 'pending').snapshots(),
           label: 'Pending',
           icon: Icons.pending_actions_rounded,
           color: const Color(0xFFE65100),
           lightColor: const Color(0xFFFFF3E0),
           isAlert: true,
           onTap: () => Get.to(
-                () => const AdminDonationsListScreen(
-              mode: AdminDonationsListMode.pending,
-              title: 'Pending Donations',
-            ),
+                () => const AdminDonationsListScreen(mode: AdminDonationsListMode.pending, title: 'Pending Donations'),
             transition: Transition.rightToLeft,
           ),
         ),
         _StatCard(
-          stream: db
-              .collection('campaigns')
-              .where('isActive', isEqualTo: true)
-              .snapshots(),
+          stream: db.collection('campaigns').where('isActive', isEqualTo: true).snapshots(),
           label: 'Campaigns',
           icon: Icons.campaign_rounded,
           color: const Color(0xFF00838F),
           lightColor: const Color(0xFFE0F7FA),
-          onTap: () => Get.find<AdminNavController>()
-              .openCampaignsEventsTab(0),
+          onTap: () => Get.find<AdminNavController>().openCampaignsEventsTab(0),
         ),
         _StatCard(
-          stream: db
-              .collection('users')
-              .where('role', isEqualTo: 'volunteer')
-              .where('isOnline', isEqualTo: true)
-              .snapshots(),
-          countFilter: _isApprovedVolunteer,
+          stream: db.collection('users').where('role', isEqualTo: 'volunteer').where('isOnline', isEqualTo: true).snapshots(),
+          countFilter: isApprovedVolunteer,
           label: 'Online Now',
           icon: Icons.online_prediction_rounded,
           color: const Color(0xFF2E7D32),
           lightColor: const Color(0xFFE8F5E9),
-          onTap: () => Get.to(
-                () => const AdminVolunteersListScreen(),
-            transition: Transition.rightToLeft,
-          ),
+          // CHANGED — was AdminVolunteersListScreen() (shows everyone).
+          // Now opens the dedicated online-only screen with availability.
+          onTap: () => Get.to(() => const AdminOnlineVolunteersScreen(), transition: Transition.rightToLeft),
         ),
       ],
     );
@@ -340,7 +299,6 @@ class _StatCard extends StatelessWidget {
       stream: stream,
       builder: (context, snapshot) {
         int count = 0;
-
         if (snapshot.hasData) {
           if (countFilter == null) {
             count = snapshot.data!.docs.length;
@@ -355,35 +313,19 @@ class _StatCard extends StatelessWidget {
         return GestureDetector(
           onTap: onTap,
           child: Container(
-            padding: const EdgeInsets.symmetric(
-              horizontal: 14,
-              vertical: 12,
-            ),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(16),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 8,
-                  offset: const Offset(0, 3),
-                ),
-              ],
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 3))],
             ),
             child: Row(
               children: [
                 Container(
                   width: 44,
                   height: 44,
-                  decoration: BoxDecoration(
-                    color: lightColor,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Icon(
-                    icon,
-                    color: color,
-                    size: 22,
-                  ),
+                  decoration: BoxDecoration(color: lightColor, borderRadius: BorderRadius.circular(12)),
+                  child: Icon(icon, color: color, size: 22),
                 ),
                 const SizedBox(width: 12),
                 Expanded(
@@ -394,38 +336,17 @@ class _StatCard extends StatelessWidget {
                       Row(
                         children: [
                           Text(
-                            snapshot.connectionState ==
-                                ConnectionState.waiting
-                                ? '—'
-                                : '$count',
-                            style: TextStyle(
-                              fontSize: 20,
-                              fontWeight: FontWeight.bold,
-                              color: color,
-                            ),
+                            snapshot.connectionState == ConnectionState.waiting ? '—' : '$count',
+                            style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color),
                           ),
                           if (isAlert && count > 0) ...[
                             const SizedBox(width: 6),
-                            Container(
-                              width: 8,
-                              height: 8,
-                              decoration: const BoxDecoration(
-                                color: Colors.red,
-                                shape: BoxShape.circle,
-                              ),
-                            ),
+                            Container(width: 8, height: 8, decoration: const BoxDecoration(color: Colors.red, shape: BoxShape.circle)),
                           ],
                         ],
                       ),
                       const SizedBox(height: 2),
-                      Text(
-                        label,
-                        style: TextStyle(
-                          fontSize: 10.5,
-                          color: Colors.grey[600],
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
+                      Text(label, style: TextStyle(fontSize: 10.5, color: Colors.grey[600], fontWeight: FontWeight.w500)),
                     ],
                   ),
                 ),
@@ -458,6 +379,8 @@ class _QuickActions extends StatelessWidget {
         ),
         const SizedBox(width: 10),
         _ActionBtn(
+          // CHANGED — was "Add Project" pointing at tab 0 (Campaigns).
+          // Now correctly "Add Event" pointing at tab 1 (Events).
           label: 'Add Event',
           icon: Icons.event_available_rounded,
           color: const Color(0xFF1565C0),
@@ -481,12 +404,7 @@ class _ActionBtn extends StatelessWidget {
   final Color color;
   final VoidCallback onTap;
 
-  const _ActionBtn({
-    required this.label,
-    required this.icon,
-    required this.color,
-    required this.onTap,
-  });
+  const _ActionBtn({required this.label, required this.icon, required this.color, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -498,27 +416,13 @@ class _ActionBtn extends StatelessWidget {
           decoration: BoxDecoration(
             color: color.withOpacity(0.08),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: color.withOpacity(0.2),
-            ),
+            border: Border.all(color: color.withOpacity(0.2)),
           ),
           child: Column(
             children: [
-              Icon(
-                icon,
-                color: color,
-                size: 22,
-              ),
+              Icon(icon, color: color, size: 22),
               const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: color,
-                  fontWeight: FontWeight.w600,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600), textAlign: TextAlign.center),
             ],
           ),
         ),
@@ -533,14 +437,10 @@ class _ActionBtn extends StatelessWidget {
 class _RecentActivity extends StatelessWidget {
   final FirebaseFirestore db;
 
-  const _RecentActivity({
-    required this.db,
-  });
+  const _RecentActivity({required this.db});
 
   bool _isFund(Map<String, dynamic> data) {
-    return data['type'] == 'fund' ||
-        data.containsKey('amount') ||
-        data.containsKey('paymentProofUrl');
+    return data['type'] == 'fund' || data.containsKey('amount') || data.containsKey('paymentProofUrl');
   }
 
   @override
@@ -550,150 +450,89 @@ class _RecentActivity extends StatelessWidget {
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(16),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 3))],
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min, // CHANGED — sizes to its content now
         children: [
           Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 8),
             child: Row(
               mainAxisAlignment: MainAxisAlignment.spaceBetween,
               children: [
-                const Text(
-                  'Recent Donations',
-                  style: TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                Text(
-                  'Latest 3',
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[500],
-                  ),
-                ),
+                const Text('Recent Donations', style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A))),
+                Text('Latest 3', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
               ],
             ),
           ),
           const Divider(height: 1),
-          Expanded(
-            child: StreamBuilder<QuerySnapshot>(
-              stream: db
-                  .collection('donations')
-                  .orderBy('createdAt', descending: true)
-                  .limit(3)
-                  .snapshots(),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState ==
-                    ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                      color: Color(0xFF1B6B3A),
-                      strokeWidth: 2,
-                    ),
-                  );
-                }
-
-                final docs = snapshot.data?.docs ?? [];
-
-                if (docs.isEmpty) {
-                  return Center(
-                    child: Text(
-                      'No donations yet',
-                      style: TextStyle(
-                        color: Colors.grey[400],
-                        fontSize: 13,
-                      ),
-                    ),
-                  );
-                }
-
-                return ListView.separated(
-                  padding: const EdgeInsets.symmetric(vertical: 4),
-                  physics: const NeverScrollableScrollPhysics(),
-                  itemCount: docs.length,
-                  separatorBuilder: (_, __) => const Divider(
-                    height: 1,
-                    indent: 56,
-                  ),
-                  itemBuilder: (context, index) {
-                    final doc = docs[index];
-                    final data =
-                    doc.data() as Map<String, dynamic>;
-
-                    final bool isFund = _isFund(data);
-                    final String status =
-                        data['status']?.toString() ?? 'pending';
-
-                    return GestureDetector(
-                      onTap: () => Get.to(
-                            () => AdminDonationDetailsScreen(
-                          donationId: doc.id,
-                          initialData: data,
-                        ),
-                        transition: Transition.rightToLeft,
-                      ),
-                      child: ListTile(
-                        dense: true,
-                        leading: Container(
-                          width: 36,
-                          height: 36,
-                          decoration: BoxDecoration(
-                            color: isFund
-                                ? const Color(0xFFE3F2FD)
-                                : const Color(0xFFE8F5E9),
-                            borderRadius:
-                            BorderRadius.circular(10),
-                          ),
-                          child: Icon(
-                            isFund
-                                ? Icons.payments_rounded
-                                : Icons.inventory_2_rounded,
-                            size: 18,
-                            color: isFund
-                                ? const Color(0xFF1565C0)
-                                : const Color(0xFF1B6B3A),
-                          ),
-                        ),
-                        title: Text(
-                          isFund
-                              ? 'Rs. ${data['verifiedAmount'] ?? data['amount'] ?? '0'}'
-                              : (data['itemName'] ??
-                              'Resource'),
-                          style: const TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                        subtitle: Text(
-                          data['donorName'] ??
-                              data['userEmail'] ??
-                              data['donorEmail'] ??
-                              '',
-                          style: TextStyle(
-                            fontSize: 11,
-                            color: Colors.grey[500],
-                          ),
-                        ),
-                        trailing: _StatusBadge(
-                          status: status,
-                        ),
-                      ),
-                    );
-                  },
+          // CHANGED — Expanded removed; StreamBuilder now sizes naturally
+          // so the WHOLE page scrolls together instead of this box alone.
+          StreamBuilder<QuerySnapshot>(
+            stream: db.collection('donations').orderBy('createdAt', descending: true).limit(3).snapshots(),
+            builder: (context, snapshot) {
+              if (snapshot.connectionState == ConnectionState.waiting) {
+                return const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Center(child: CircularProgressIndicator(color: Color(0xFF1B6B3A), strokeWidth: 2)),
                 );
-              },
-            ),
+              }
+              final docs = snapshot.data?.docs ?? [];
+              if (docs.isEmpty) {
+                return Padding(
+                  padding: const EdgeInsets.all(24),
+                  child: Center(child: Text('No donations yet', style: TextStyle(color: Colors.grey[400], fontSize: 13))),
+                );
+              }
+              return ListView.separated(
+                padding: const EdgeInsets.symmetric(vertical: 4),
+                shrinkWrap: true, // NEW
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: docs.length,
+                separatorBuilder: (_, __) => const Divider(height: 1, indent: 56),
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+                  final data = doc.data() as Map<String, dynamic>;
+                  final bool isFund = _isFund(data);
+                  final String status = data['status']?.toString() ?? 'pending';
+
+                  return GestureDetector(
+                    onTap: () => Get.to(
+                          () => AdminDonationDetailsScreen(donationId: doc.id, initialData: data),
+                      transition: Transition.rightToLeft,
+                    ),
+                    child: ListTile(
+                      dense: true,
+                      leading: Container(
+                        width: 36,
+                        height: 36,
+                        decoration: BoxDecoration(
+                          color: isFund ? const Color(0xFFE3F2FD) : const Color(0xFFE8F5E9),
+                          borderRadius: BorderRadius.circular(10),
+                        ),
+                        child: Icon(
+                          isFund ? Icons.payments_rounded : Icons.inventory_2_rounded,
+                          size: 18,
+                          color: isFund ? const Color(0xFF1565C0) : const Color(0xFF1B6B3A),
+                        ),
+                      ),
+                      title: Text(
+                        isFund ? 'Rs. ${data['verifiedAmount'] ?? data['amount'] ?? '0'}' : (data['itemName'] ?? 'Resource'),
+                        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600),
+                      ),
+                      subtitle: Text(
+                        data['donorName'] ?? data['userEmail'] ?? data['donorEmail'] ?? '',
+                        style: TextStyle(fontSize: 11, color: Colors.grey[500]),
+                      ),
+                      trailing: _StatusBadge(status: status),
+                    ),
+                  );
+                },
+              );
+            },
           ),
+          const SizedBox(height: 6),
         ],
       ),
     );
@@ -702,75 +541,34 @@ class _RecentActivity extends StatelessWidget {
 
 class _StatusBadge extends StatelessWidget {
   final String status;
-
-  const _StatusBadge({
-    required this.status,
-  });
+  const _StatusBadge({required this.status});
 
   @override
   Widget build(BuildContext context) {
     Color color;
     Color bgColor;
     String label;
-
     final normalized = status.toLowerCase();
 
     switch (normalized) {
       case 'approved':
-        color = Colors.green[700]!;
-        bgColor = Colors.green[50]!;
-        label = 'Approved';
-        break;
-
+        color = Colors.green[700]!; bgColor = Colors.green[50]!; label = 'Approved'; break;
       case 'rejected':
-        color = Colors.red[700]!;
-        bgColor = Colors.red[50]!;
-        label = 'Rejected';
-        break;
-
+        color = Colors.red[700]!; bgColor = Colors.red[50]!; label = 'Rejected'; break;
       case 'completed':
       case 'complete':
-        color = const Color(0xFF1565C0);
-        bgColor = const Color(0xFFE3F2FD);
-        label = 'Completed';
-        break;
-
+        color = const Color(0xFF1565C0); bgColor = const Color(0xFFE3F2FD); label = 'Completed'; break;
       case 'pending':
-        color = Colors.orange[700]!;
-        bgColor = Colors.orange[50]!;
-        label = 'Pending';
-        break;
-
+        color = Colors.orange[700]!; bgColor = Colors.orange[50]!; label = 'Pending'; break;
       default:
-        color = Colors.blue[700]!;
-        bgColor = Colors.blue[50]!;
-        label = normalized
-            .split('_')
-            .map(
-              (word) => word.isEmpty
-              ? ''
-              : '${word[0].toUpperCase()}${word.substring(1)}',
-        )
-            .join(' ');
+        color = Colors.blue[700]!; bgColor = Colors.blue[50]!;
+        label = normalized.split('_').map((w) => w.isEmpty ? '' : '${w[0].toUpperCase()}${w.substring(1)}').join(' ');
     }
 
     return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: 8,
-        vertical: 3,
-      ),
-      decoration: BoxDecoration(
-        color: bgColor,
-        borderRadius: BorderRadius.circular(20),
-      ),
-      child: Text(
-        label,
-        style: TextStyle(
-          fontSize: 10,
-          color: color,
-          fontWeight: FontWeight.w600,
-        ),
-      ),
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(color: bgColor, borderRadius: BorderRadius.circular(20)),
+      child: Text(label, style: TextStyle(fontSize: 10, color: color, fontWeight: FontWeight.w600)),
     );
   }
 }

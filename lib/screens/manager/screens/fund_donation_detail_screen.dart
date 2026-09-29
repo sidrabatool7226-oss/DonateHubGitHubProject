@@ -9,7 +9,7 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/manager_donations_controller.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 class FundDonationDetailScreen extends StatelessWidget {
   final String docId;
   final Map<String, dynamic> data;
@@ -47,7 +47,7 @@ class FundDonationDetailScreen extends StatelessWidget {
     final bool txnMismatch = ocrTxnId != null && enteredTxnId.isNotEmpty && ocrTxnId != enteredTxnId;
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (!controller.ocrRan.value && proofUrl.isNotEmpty && status == 'pending') {
+      if (!kIsWeb && !controller.ocrRan.value && proofUrl.isNotEmpty && status == 'pending') {
         controller.runOcr(proofUrl);
       }
     });
@@ -176,14 +176,15 @@ class FundDonationDetailScreen extends StatelessWidget {
                     _EditField(label: 'Transaction ID', controller: controller.txnIdController, focusColor: primaryColor),
                   ])),
                   const SizedBox(height: 8),
-                  Align(
-                    alignment: Alignment.centerRight,
-                    child: TextButton.icon(
-                      onPressed: () => controller.runOcr(proofUrl),
-                      icon: const Icon(Icons.refresh_rounded, size: 16),
-                      label: const Text('Re-run OCR', style: TextStyle(fontSize: 12)),
+                  if (!kIsWeb)
+                    Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () => controller.runOcr(proofUrl),
+                        icon: const Icon(Icons.refresh_rounded, size: 16),
+                        label: const Text('Re-run OCR', style: TextStyle(fontSize: 12)),
+                      ),
                     ),
-                  ),
                 ]);
               }),
               const SizedBox(height: 16),

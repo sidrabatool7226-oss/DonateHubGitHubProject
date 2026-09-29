@@ -1,12 +1,13 @@
 import 'dart:async';
-import 'dart:io';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
-import '../../services/cloudinary_service.dart';
+import '../services/cloudinary_service.dart';
+import '../services/picked_image.dart';
+import '../models/sponsorship_categories.dart'; // NEW
 
 class CampaignController extends GetxController {
   final FirebaseFirestore _db =
@@ -20,7 +21,14 @@ class CampaignController extends GetxController {
 
   // ── Observables ─────────────────────────────────────────────
   var isLoading = false.obs;
-  var selectedImage = Rxn<File>();
+  var selectedImage = Rxn<PickedImage>();
+
+  // NEW — lets one entry be a Campaign, a Project, or a Sponsor-a-Child
+  // card, all stored in the SAME 'campaigns' collection (no new
+  // collection/controller needed — reuses everything that already works).
+  // Existing docs without this field are treated as 'campaign' everywhere
+  // they're read.
+  var selectedCategory = 'campaign'.obs; // 'campaign' | 'project' | 'sponsorship'
 
   // Form controllers
   final titleController =
@@ -35,18 +43,24 @@ class CampaignController extends GetxController {
   final endDateController =
   TextEditingController();
 
+  // NEW — only used when selectedCategory == 'sponsorship'. A child
+  // entry has no start/end date (it's an open-ended program, not a
+  // time-bound drive), so this replaces endDateController for that case.
+  final ageController = TextEditingController();
+
   // Needs checkboxes
   var selectedNeeds = <String>[].obs;
 
   final List<String> allNeeds = [
     'Food',
     'Clothes',
-    'Books',
-    'Furniture',
-    'Medicine',
     'Stationery',
+    'Toys',
     'Shoes',
+    'Medicine',
+    'Furniture',
     'Blankets',
+    'Hygiene Kits',
   ];
 
   @override
@@ -64,6 +78,7 @@ class CampaignController extends GetxController {
     descController.dispose();
     goalController.dispose();
     endDateController.dispose();
+    ageController.dispose(); // NEW
 
     super.onClose();
   }
@@ -101,6 +116,15 @@ class CampaignController extends GetxController {
     in campaignSnapshot.docs) {
       final campaignData =
       campaignDoc.data();
+
+      // NEW — a child's "collected" amount means current active
+      // monthly sponsorship coverage, not a lifetime donation sum —
+      // a different concept computed separately (sponsorships
+      // collection), so this generic campaign/project sync must not
+      // touch sponsorship-category docs.
+      if ((campaignData['category'] ?? 'campaign') == 'sponsorship') {
+        continue;
+      }
 
       final campaignTitle =
       (campaignData['title'] ?? '')
@@ -213,7 +237,7 @@ class CampaignController extends GetxController {
     }
   }
 
-  // ── Pick Image ──────────────────────────────────────────────
+  // ── Pick Image ────────────────────────────────────────────── (CHANGED)
   Future<void> pickImage() async {
     final XFile? image =
     await ImagePicker().pickImage(
@@ -221,10 +245,7 @@ class CampaignController extends GetxController {
       imageQuality: 70,
     );
 
-    if (image != null) {
-      selectedImage.value =
-          File(image.path);
-    }
+    selectedImage.value = await PickedImage.fromXFile(image);
   }
 
   // ── Toggle Need ─────────────────────────────────────────────
@@ -236,25 +257,67 @@ class CampaignController extends GetxController {
     }
   }
 
+  // ── Select Type (Campaign / Project / Sponsor a Child) ───────
+  // NEW — centralizes what changes when the Admin switches the
+  // "Type" chip, instead of the UI setting selectedCategory.value
+  // directly. A child's monthly amount is a FIXED, program-wide
+  // figure (the 6 sponsorship categories always sum to Rs. 30,000 —
+  // see SponsorshipCategories.fullMonthlyAmount in
+  // lib/models/sponsorship_categories.dart), so it is set
+  // automatically here rather than left for the Admin to type and
+  // possibly get wrong.
+  void selectCategory(String value) {
+    selectedCategory.value = value;
+    if (value == 'sponsorship') {
+      goalController.text = '30000';
+    } else if (goalController.text == '30000') {
+      // Only clear if it still holds the auto-filled sponsorship
+      // value — an Admin's own typed 30000 for a real campaign is
+      // left untouched.
+      goalController.clear();
+    }
+  }
+
   // ── Clear Form ──────────────────────────────────────────────
   void clearForm() {
     titleController.clear();
     descController.clear();
     goalController.clear();
     endDateController.clear();
+    ageController.clear(); // NEW
 
     selectedImage.value = null;
     selectedNeeds.clear();
+    selectedCategory.value = 'campaign'; // NEW
   }
 
-  // ── Add Campaign ────────────────────────────────────────────
+  // ── Add Campaign ──────────────────────────────────────────── (CHANGED upload line only)
   Future<bool> addCampaign() async {
+    final bool isSponsorship = selectedCategory.value == 'sponsorship';
+
     if (titleController.text.trim().isEmpty ||
         descController.text.trim().isEmpty ||
         goalController.text.trim().isEmpty) {
       Get.snackbar(
         'Missing Fields',
         'Please fill all required fields',
+        backgroundColor: Colors.red[50],
+        colorText: Colors.red[700],
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+
+      return false;
+    }
+
+    // NEW — a child card is far less useful without a photo and age,
+    // so these are required only for the sponsorship type. Campaign
+    // and Project keep exactly the validation they had before.
+    if (isSponsorship &&
+        (ageController.text.trim().isEmpty || selectedImage.value == null)) {
+      Get.snackbar(
+        'Missing Fields',
+        'Please add the child\'s age and a photo.',
         backgroundColor: Colors.red[50],
         colorText: Colors.red[700],
         snackPosition: SnackPosition.BOTTOM,
@@ -271,9 +334,7 @@ class CampaignController extends GetxController {
 
       if (selectedImage.value != null) {
         final String? url =
-        await _cloudinary.uploadImage(
-          selectedImage.value!,
-        );
+        await selectedImage.value!.upload(_cloudinary);
 
         if (url != null) {
           imageUrl = url;
@@ -285,16 +346,20 @@ class CampaignController extends GetxController {
         titleController.text.trim(),
         'description':
         descController.text.trim(),
-        'goalAmount': double.tryParse(
-          goalController.text.trim(),
-        ) ??
-            0,
+        // NEW — sponsorship's monthly amount is always the fixed
+        // program total, never a typed value. Campaign/Project keep
+        // reading whatever the Admin entered, unchanged.
+        'goalAmount': isSponsorship
+            ? SponsorshipCategories.fullMonthlyAmount
+            : (double.tryParse(goalController.text.trim()) ?? 0),
         'collectedAmount': 0,
         'image': imageUrl,
         'endDate':
         endDateController.text.trim(),
         'needs':
         selectedNeeds.toList(),
+        'category': selectedCategory.value, // NEW — campaign | project | sponsorship
+        'age': ageController.text.trim(), // NEW — sponsorship only; empty otherwise
         'isActive': true,
         'createdAt':
         FieldValue.serverTimestamp(),

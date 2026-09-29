@@ -1,14 +1,15 @@
 // ============================================================
-// FILE: lib/services/fcm_service.dart (NEW)
-// Handles: token save/refresh/multi-device, foreground local
-// notification display, tap navigation (foreground/background/terminated)
+// FILE: lib/services/fcm_service.dart
+// CHANGE: Android-specific local-notification code moved to
+// local_notif_mobile.dart / local_notif_stub.dart (see
+// local_notif_service.dart switch). Everything else UNCHANGED.
 // ============================================================
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_messaging/firebase_messaging.dart';
-import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:get/get.dart';
+import 'local_notif_service.dart';
 import '../screens/donor/donor_donations_tab.dart';
 import '../screens/volunteer/screens/volunteer_task_detail_screen.dart';
 
@@ -19,41 +20,12 @@ class FcmService {
 
   final FirebaseMessaging _fcm = FirebaseMessaging.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
-  final FlutterLocalNotificationsPlugin _localNotifications =
-  FlutterLocalNotificationsPlugin();
-
-  // NAYA — manifest ke sath match
-  static const AndroidNotificationChannel _channel = AndroidNotificationChannel(
-    'donatehub_android_studio_channel',
-    'DonateHub Notifications',
-    description: 'Important updates from DonateHub',
-    importance: Importance.high,
-    playSound: true,
-  );
+  final LocalNotifHelper _localNotif = LocalNotifHelper();
 
   RemoteMessage? _pendingTapMessage;
 
   Future<void> initialize() async {
-    // ── Local notifications setup (for foreground display) ─────────────
-    const androidInit = AndroidInitializationSettings('@mipmap/ic_launcher');
-    const initSettings = InitializationSettings(android: androidInit);
-
-    await _localNotifications.initialize(
-      initSettings,
-      onDidReceiveNotificationResponse: (response) {
-        if (response.payload != null && response.payload!.isNotEmpty) {
-          final parts = response.payload!.split('|');
-          final type = parts.isNotEmpty ? parts[0] : '';
-          final entityId = parts.length > 1 ? parts[1] : '';
-          _handleTap(type, entityId);
-        }
-      },
-    );
-
-    await _localNotifications
-        .resolvePlatformSpecificImplementation<
-        AndroidFlutterLocalNotificationsPlugin>()
-        ?.createNotificationChannel(_channel);
+    await _localNotif.init(onTap: _handleTap);
 
     // ── React to login/logout — save/remove FCM token ──────────────────
     FirebaseAuth.instance.authStateChanges().listen((user) async {
@@ -85,7 +57,6 @@ class FcmService {
     final initialMessage = await _fcm.getInitialMessage();
     if (initialMessage != null) {
       _pendingTapMessage = initialMessage;
-      // Delay to let splash/auth routing settle first
       Future.delayed(const Duration(milliseconds: 1500), () {
         if (_pendingTapMessage != null) {
           _handleTap(
@@ -111,7 +82,6 @@ class FcmService {
     }
   }
 
-  // Call this from logout flows to remove this device's token
   static Future<void> removeCurrentDeviceToken(String uid) async {
     try {
       final token = await FirebaseMessaging.instance.getToken();
@@ -120,9 +90,7 @@ class FcmService {
           'fcmTokens': FieldValue.arrayRemove([token]),
         });
       }
-    } catch (_) {
-      // Non-fatal — logout should proceed regardless
-    }
+    } catch (_) {}
   }
 
   void _showLocalNotification(RemoteMessage message) {
@@ -132,20 +100,10 @@ class FcmService {
     final type = message.data['type'] ?? '';
     final entityId = message.data['entityId'] ?? '';
 
-    _localNotifications.show(
-      notification.hashCode,
-      notification.title,
-      notification.body,
-      NotificationDetails(
-        android: AndroidNotificationDetails(
-          _channel.id,
-          _channel.name,
-          channelDescription: _channel.description,
-          importance: Importance.high,
-          priority: Priority.high,
-          icon: '@mipmap/ic_launcher',
-        ),
-      ),
+    _localNotif.show(
+      id: notification.hashCode,
+      title: notification.title,
+      body: notification.body,
       payload: '$type|$entityId',
     );
   }
@@ -203,9 +161,6 @@ class FcmService {
 
         case 'new_donation_submitted':
         case 'new_volunteer_application':
-        // Manager dashboard opens on Home tab — pending counts are
-        // visible there. Deep-linking to a specific tab isn't
-        // supported by the current ManagerDashboard implementation.
           Get.offAllNamed('/manager_dashboard');
           break;
 

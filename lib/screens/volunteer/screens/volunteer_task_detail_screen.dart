@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../controllers/volunteer_tasks_controller.dart';
+import '../../../widgets/task_pickup_map_section.dart'; // NEW — embedded pickup map
 
 class VolunteerTaskDetailScreen extends StatelessWidget {
   final String taskId;
@@ -145,6 +146,19 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
                     ],
                   ],
                 ),
+              ),
+              const SizedBox(height: 14),
+            ],
+
+            // ── NEW — embedded pickup-location map ──────────────────
+            // Additive only: does not replace the address text above,
+            // the existing "Navigate to Location" button below, or any
+            // other existing task information/actions on this screen.
+            if (location.isNotEmpty) ...[
+              TaskPickupMapSection(
+                taskId: taskId,
+                taskData: data,
+                pickupAddress: location,
               ),
               const SizedBox(height: 14),
             ],

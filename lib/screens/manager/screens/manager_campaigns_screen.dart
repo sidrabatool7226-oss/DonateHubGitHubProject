@@ -22,7 +22,7 @@ class ManagerCampaignsScreen extends StatelessWidget {
         foregroundColor: Colors.white,
         elevation: 0,
         title: const Text(
-          'Campaigns',
+          'Funds Donation',
           style: TextStyle(
             fontSize: 17,
             fontWeight: FontWeight.bold,
@@ -116,6 +116,16 @@ class _CampaignCard extends StatelessWidget {
 
     final isActive = data['isActive'] == true;
 
+    // NEW — same category convention already used on Admin/Donor sides
+    // ('campaign' | 'project' | 'sponsorship'); older docs without this
+    // field are treated as a plain Campaign.
+    final String category = (data['category'] ?? 'campaign').toString();
+    final String categoryLabel = category == 'project'
+        ? 'Project'
+        : category == 'sponsorship'
+        ? 'Sponsorship'
+        : 'Campaign';
+
     final progress = goal > 0
         ? (collected / goal).clamp(0.0, 1.0)
         : 0.0;
@@ -178,6 +188,26 @@ class _CampaignCard extends StatelessWidget {
                       ),
                     ),
                     const SizedBox(width: 8),
+                    // NEW — category badge (Campaign / Project / Sponsorship)
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 9,
+                        vertical: 4,
+                      ),
+                      margin: const EdgeInsets.only(right: 6),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEFF6FF),
+                        borderRadius: BorderRadius.circular(20),
+                      ),
+                      child: Text(
+                        categoryLabel,
+                        style: const TextStyle(
+                          fontSize: 9.5,
+                          fontWeight: FontWeight.w700,
+                          color: Color(0xFF2563EB),
+                        ),
+                      ),
+                    ),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 9,
@@ -222,7 +252,7 @@ class _CampaignCard extends StatelessWidget {
                   children: [
                     Expanded(
                       child: _AmountInfo(
-                        label: 'Goal',
+                        label: category == 'sponsorship' ? 'Monthly' : 'Goal',
                         value: 'Rs. ${goal.toStringAsFixed(0)}',
                       ),
                     ),

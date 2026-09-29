@@ -277,22 +277,26 @@ class _VolunteerRegistrationFormScreenState
       _showSnack('Please select at least one role', isError: true);
       return;
     }
-    // NEW — CNIC images required
-    if (_cnicFrontImage == null || _cnicBackImage == null) {
-      _showSnack('Please upload both sides of your CNIC', isError: true);
-      return;
-    }
+    // CHANGED — CNIC photos are now optional, not required. A volunteer
+    // can register without uploading either side; Manager can still ask
+    // for it later during verification if genuinely needed.
 
     setState(() => _isSubmitting = true);
 
     try {
       setState(() => _isUploading = true);
       String? profilePicUrl = await _cloudinary.uploadImage(_profileImage!);
-      String? cnicFrontUrl = await _cloudinary.uploadImage(_cnicFrontImage!); // NEW
-      String? cnicBackUrl = await _cloudinary.uploadImage(_cnicBackImage!); // NEW
+      // CHANGED — only attempt to upload a CNIC side if the volunteer
+      // actually picked one; null means "not provided", not "failed".
+      String? cnicFrontUrl = _cnicFrontImage != null ? await _cloudinary.uploadImage(_cnicFrontImage!) : null;
+      String? cnicBackUrl = _cnicBackImage != null ? await _cloudinary.uploadImage(_cnicBackImage!) : null;
       setState(() => _isUploading = false);
 
-      if (cnicFrontUrl == null || cnicBackUrl == null) {
+      // CHANGED — only treat this as a failure if the volunteer DID pick
+      // an image and it specifically failed to upload (e.g. no internet
+      // mid-upload) — not simply because they chose to skip CNIC entirely.
+      if ((_cnicFrontImage != null && cnicFrontUrl == null) ||
+          (_cnicBackImage != null && cnicBackUrl == null)) {
         setState(() => _isSubmitting = false);
         _showSnack('CNIC upload failed. Please check your connection and try again.', isError: true);
         return;
@@ -322,8 +326,8 @@ class _VolunteerRegistrationFormScreenState
         'university': _universityCtrl.text.trim(),
         'bloodGroup': _selectedBloodGroup,
         'cnic': _cnicCtrl.text.trim(),
-        'cnicFrontUrl': cnicFrontUrl, // NEW — matches existing field name already expected by Manager UI
-        'cnicBackUrl': cnicBackUrl, // NEW
+        'cnicFrontUrl': cnicFrontUrl ?? '', // CHANGED — empty when skipped, not required
+        'cnicBackUrl': cnicBackUrl ?? '', // CHANGED — empty when skipped, not required
         'categories': _selectedRoles,
         'pastExperience': _experienceCtrl.text.trim(), // stays optional — empty string allowed
         'profilePicUrl': profilePicUrl ?? '',
@@ -700,31 +704,33 @@ class _VolunteerRegistrationFormScreenState
                         ),
                         const SizedBox(height: 14),
                         _field(
-                          label: 'CNIC Number *',
+                          label: 'CNIC Number (Optional)', // CHANGED — was required
                           controller: _cnicCtrl,
                           hint: '00000-0000000-0',
                           keyboardType: TextInputType.number,
                           inputFormatters: [_CnicFormatter()],
                           maxLength: 15,
                           validator: (v) {
+                            // CHANGED — empty is now allowed; only checks
+                            // the format if the volunteer entered something.
                             if (v == null || v.trim().isEmpty) {
-                              return 'CNIC is required';
+                              return null;
                             }
                             if (v.trim().length != 15) {
-                              return 'Enter complete CNIC (13 digits)';
+                              return 'Enter complete CNIC (13 digits) or leave blank';
                             }
                             return null;
                           },
                         ),
                         const SizedBox(height: 16),
-                        // NEW — CNIC image upload
+                        // CHANGED — CNIC image upload is optional
                         const Text(
-                          'CNIC Photo Verification *',
+                          'CNIC Photo Verification (Optional)',
                           style: TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600),
                         ),
                         const SizedBox(height: 4),
                         Text(
-                          'Take clear photos of both sides of your CNIC',
+                          'Take clear photos of both sides of your CNIC, if you have it available',
                           style: TextStyle(fontSize: 11, color: Colors.grey[500]),
                         ),
                         const SizedBox(height: 10),

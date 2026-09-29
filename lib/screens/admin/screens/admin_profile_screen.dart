@@ -2,9 +2,7 @@ import 'package:donatehub_android_studio/screens/admin/screens/shared/notificati
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/profile_controller.dart';
-import '../../../widgets/appearance_selector_sheet.dart';
-import '../../shared/notifications_screen.dart';
-import '../../shared/donors_list_screen.dart';
+import '../../manager/screens/rewards_overview_screen.dart'; // NEW — shared with Manager
 class AdminProfileScreen extends StatelessWidget {
   const AdminProfileScreen({super.key});
 
@@ -65,22 +63,6 @@ class AdminProfileScreen extends StatelessWidget {
                       ),
 
                       const SizedBox(height: 10),
-
-                      // ── NEW: Appearance ────────────────────────────
-                      _ActionCard(
-                        icon: Icons.dark_mode_outlined,
-                        label: 'Appearance',
-                        subtitle: 'Light, Dark or System Default',
-                        color: const Color(0xFF6A1B9A),
-                        onTap: () =>
-                            AppearanceSelectorSheet.show(
-                              context,
-                              accentColor: _green,
-                            ),
-                      ),
-
-                      const SizedBox(height: 10),
-
                       // ── Notifications ─────────────────────────────
                       _ActionCard(
                         icon: Icons.notifications_outlined,
@@ -114,13 +96,12 @@ class AdminProfileScreen extends StatelessWidget {
                             ),
                       ),
                       _ActionCard(
-                        icon: Icons.volunteer_activism_rounded,
-                        label: 'Donor Rewards',
-                        subtitle: 'View donor reward points and badges',
+                        icon: Icons.emoji_events_outlined,
+                        label: 'Rewards & Recognition',
+                        subtitle: 'Donor and volunteer points & badges',
                         color: const Color(0xFFDB7C26),
-                        onTap: () => Get.to(() => const DonorsListScreen(accentColor: _green)),
+                        onTap: () => Get.to(() => const RewardsOverviewScreen()),
                       ),
-                      const SizedBox(height: 10),
 
                       const SizedBox(height: 20),
 
@@ -634,6 +615,7 @@ class _ActionCard extends StatelessWidget {
       onTap: onTap,
       child: Container(
         width: double.infinity,
+        margin: const EdgeInsets.only(bottom: 12), // FIXED — cards had no spacing of their own, so they touched wherever a manual SizedBox was missing between them
         padding:
         const EdgeInsets.all(14),
         decoration:

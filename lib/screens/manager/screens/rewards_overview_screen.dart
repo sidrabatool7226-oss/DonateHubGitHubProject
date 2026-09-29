@@ -168,7 +168,33 @@ class _DonorsRewardsList extends StatelessWidget {
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                            Row(
+                              children: [
+                                Flexible(
+                                  child: Text(name,
+                                      style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                      overflow: TextOverflow.ellipsis),
+                                ),
+                                if (data['showOnLeaderboard'] != true) ...[
+                                  const SizedBox(width: 6),
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                    decoration: BoxDecoration(
+                                      color: Colors.grey[100],
+                                      borderRadius: BorderRadius.circular(20),
+                                    ),
+                                    child: Row(
+                                      mainAxisSize: MainAxisSize.min,
+                                      children: [
+                                        Icon(Icons.lock_outline_rounded, size: 10, color: Colors.grey[500]),
+                                        const SizedBox(width: 3),
+                                        Text('Private', style: TextStyle(fontSize: 9, color: Colors.grey[500], fontWeight: FontWeight.w600)),
+                                      ],
+                                    ),
+                                  ),
+                                ],
+                              ],
+                            ),
                             Text(email, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                             const SizedBox(height: 4),
                             Row(children: [
@@ -262,7 +288,33 @@ class _VolunteersRewardsList extends StatelessWidget {
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(name, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                              Row(
+                                children: [
+                                  Flexible(
+                                    child: Text(name,
+                                        style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold),
+                                        overflow: TextOverflow.ellipsis),
+                                  ),
+                                  if (data['showOnLeaderboard'] != true) ...[
+                                    const SizedBox(width: 6),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: Colors.grey[100],
+                                        borderRadius: BorderRadius.circular(20),
+                                      ),
+                                      child: Row(
+                                        mainAxisSize: MainAxisSize.min,
+                                        children: [
+                                          Icon(Icons.lock_outline_rounded, size: 10, color: Colors.grey[500]),
+                                          const SizedBox(width: 3),
+                                          Text('Private', style: TextStyle(fontSize: 9, color: Colors.grey[500], fontWeight: FontWeight.w600)),
+                                        ],
+                                      ),
+                                    ),
+                                  ],
+                                ],
+                              ),
                               Text(data['email'] ?? '', style: TextStyle(fontSize: 11, color: Colors.grey[500])),
                               const SizedBox(height: 4),
                               Row(children: [

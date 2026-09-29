@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../widgets/admin_account_status_card.dart'; // NEW — activate/deactivate
 
 class AdminVolunteersListScreen extends StatelessWidget {
   const AdminVolunteersListScreen({super.key});
@@ -101,7 +102,8 @@ class AdminVolunteersListScreen extends StatelessWidget {
 
               return GestureDetector(
                 onTap: () => Get.to(
-                      () => _VolunteerCompleteDetailsScreen(
+                      () => VolunteerCompleteDetailsScreen(
+                    docId: doc.id, // NEW
                     data: data,
                   ),
                   transition: Transition.rightToLeft,
@@ -200,16 +202,21 @@ class AdminVolunteersListScreen extends StatelessWidget {
                                 vertical: 3,
                               ),
                               decoration: BoxDecoration(
-                                color:
-                                const Color(0xFFE8F5E9),
+                                color: (data['status'] ?? 'active') == 'inactive'
+                                    ? Colors.red[50]
+                                    : const Color(0xFFE8F5E9),
                                 borderRadius:
                                 BorderRadius.circular(20),
                               ),
-                              child: const Text(
-                                'Verified',
+                              child: Text(
+                                (data['status'] ?? 'active') == 'inactive'
+                                    ? 'Deactivated'
+                                    : 'Verified',
                                 style: TextStyle(
                                   fontSize: 9.5,
-                                  color: _green,
+                                  color: (data['status'] ?? 'active') == 'inactive'
+                                      ? Colors.red[700]
+                                      : _green,
                                   fontWeight:
                                   FontWeight.w600,
                                 ),
@@ -234,11 +241,13 @@ class AdminVolunteersListScreen extends StatelessWidget {
   }
 }
 
-class _VolunteerCompleteDetailsScreen
+class VolunteerCompleteDetailsScreen
     extends StatelessWidget {
+  final String docId; // NEW
   final Map<String, dynamic> data;
 
-  const _VolunteerCompleteDetailsScreen({
+  const VolunteerCompleteDetailsScreen({
+    required this.docId,
     required this.data,
   });
 
@@ -348,6 +357,8 @@ class _VolunteerCompleteDetailsScreen
               ],
             ),
           ),
+          const SizedBox(height: 14),
+          AdminAccountStatusCard(docId: docId, roleLabel: 'Volunteer'), // NEW
           const SizedBox(height: 14),
           _section(
             'Personal Information',

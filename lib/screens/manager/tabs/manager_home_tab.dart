@@ -9,9 +9,12 @@ import '../tabs/manager_tasks_tab.dart';
 import '../screens/fund_donation_detail_screen.dart';
 import '../screens/resource_donation_detail_screen.dart';
 import '../screens/manager_campaigns_screen.dart';
+import '../../../widgets/notification_bell_icon.dart'; // NEW
+import '../screens/general_fund_screen.dart'; // NEW
 
 class ManagerHomeTab extends StatelessWidget {
-  const ManagerHomeTab({super.key});
+  final VoidCallback? onGoToProfile; // NEW
+  const ManagerHomeTab({super.key, this.onGoToProfile});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -26,7 +29,7 @@ class ManagerHomeTab extends StatelessWidget {
       body: SafeArea(
         child: Column(
           children: [
-            _Header(controller: controller),
+            _Header(controller: controller, onGoToProfile: onGoToProfile),
             Expanded(
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -35,6 +38,8 @@ class ManagerHomeTab extends StatelessWidget {
                     _StatsGrid(controller: controller),
                     const SizedBox(height: 12),
                     _CampaignsButton(controller: controller),
+                    const SizedBox(height: 12),
+                    const _GeneralFundButton(), // NEW
                     const SizedBox(height: 12),
                     Expanded(
                       child: _RecentActivityCard(controller: controller),
@@ -56,8 +61,9 @@ class ManagerHomeTab extends StatelessWidget {
 
 class _Header extends StatelessWidget {
   final ManagerHomeController controller;
+  final VoidCallback? onGoToProfile; // NEW
 
-  const _Header({required this.controller});
+  const _Header({required this.controller, this.onGoToProfile});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -106,22 +112,31 @@ class _Header extends StatelessWidget {
                 ],
               ),
             ),
-            Container(
-              width: 46,
-              height: 46,
-              decoration: BoxDecoration(
-                color: Colors.white.withOpacity(0.18),
-                shape: BoxShape.circle,
-                border: Border.all(
-                  color: Colors.white.withOpacity(0.4),
-                  width: 1.5,
+            Row(
+              children: [
+                NotificationBellIcon(accentColor: _emerald),
+                const SizedBox(width: 10),
+                GestureDetector(
+                  onTap: onGoToProfile,
+                  child: Container(
+                    width: 46,
+                    height: 46,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.18),
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.4),
+                        width: 1.5,
+                      ),
+                    ),
+                    child: const Icon(
+                      Icons.person_outline_rounded,
+                      color: Colors.white,
+                      size: 22,
+                    ),
+                  ),
                 ),
-              ),
-              child: const Icon(
-                Icons.badge_rounded,
-                color: Colors.white,
-                size: 22,
-              ),
+              ],
             ),
           ],
         ),
@@ -628,7 +643,7 @@ class _CampaignsButton extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const Text(
-                        'Campaigns',
+                        'Funds Donation',
                         style: TextStyle(
                           fontSize: 13.5,
                           fontWeight: FontWeight.bold,
@@ -673,6 +688,82 @@ class _CampaignsButton extends StatelessWidget {
                   size: 14,
                   color: _mint,
                 ),
+              ],
+            );
+          },
+        ),
+      ),
+    );
+  }
+}
+
+// ==========================================================================
+// GENERAL FUND BUTTON (NEW)
+// ==========================================================================
+class _GeneralFundButton extends StatelessWidget {
+  const _GeneralFundButton();
+
+  static const Color _emerald = Color(0xFF0F6E4F);
+  static const Color _mint = Color(0xFF2FBF87);
+
+  double _number(dynamic value) {
+    if (value is num) return value.toDouble();
+    return double.tryParse(value?.toString() ?? '') ?? 0;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: () {
+        Get.to(
+              () => const GeneralFundScreen(),
+          transition: Transition.rightToLeft,
+        );
+      },
+      child: Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(18),
+          boxShadow: [
+            BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4)),
+          ],
+        ),
+        child: StreamBuilder<DocumentSnapshot>(
+          stream: FirebaseFirestore.instance.collection('general_fund').doc('summary').snapshots(),
+          builder: (context, snapshot) {
+            final Map<String, dynamic> summary = (snapshot.data?.data() as Map<String, dynamic>?) ?? {};
+            final double received = _number(summary['totalReceived']);
+            final double allocated = _number(summary['totalAllocated']);
+            final double remaining = (received - allocated).clamp(0, received);
+
+            return Row(
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(color: const Color(0xFFE6F5EE), borderRadius: BorderRadius.circular(11)),
+                  child: const Icon(Icons.savings_rounded, color: _emerald, size: 20),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'General Fund',
+                        style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: Color(0xFF14251E)),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        'Rs. ${remaining.toStringAsFixed(0)} unallocated',
+                        style: const TextStyle(fontSize: 10.5, color: _emerald, fontWeight: FontWeight.w600),
+                      ),
+                    ],
+                  ),
+                ),
+                const Icon(Icons.arrow_forward_ios_rounded, size: 14, color: _mint),
               ],
             );
           },

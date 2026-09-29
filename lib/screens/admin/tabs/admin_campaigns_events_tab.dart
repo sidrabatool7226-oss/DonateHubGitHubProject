@@ -6,8 +6,9 @@ import 'dart:io';
 import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/event_participants_screen.dart';
+import '../../../widgets/picked_image_preview.dart';
+import '../screens/admin_general_fund_screen.dart'; // NEW
 import '../../../controllers/admin_nav_controller.dart';
-
 class AdminCampaignsEventsTab extends StatefulWidget {
   const AdminCampaignsEventsTab({super.key});
 
@@ -16,55 +17,42 @@ class AdminCampaignsEventsTab extends StatefulWidget {
       _AdminCampaignsEventsTabState();
 }
 
+// CHANGED — Events is no longer hidden. A segmented toggle now switches
+// this whole tab between "Fundraising" (Campaigns/Projects/Sponsorships)
+// and "Events" (volunteer coordination) — two genuinely different admin
+// jobs that don't belong mixed into one undifferentiated list, but also
+// don't need two separate bottom-nav tabs.
 class _AdminCampaignsEventsTabState
-    extends State<AdminCampaignsEventsTab>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
-  Worker? _campaignEventsWorker;
-
+    extends State<AdminCampaignsEventsTab> {
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _blue = Color(0xFF1565C0);
 
+  int _selectedTab = 0; // 0 = Fundraising, 1 = Events
+  Worker? _navWorker;
   @override
   void initState() {
     super.initState();
-
+    // Sync with AdminNavController so "Add Event" / stat-card taps
+    // from Home actually switch this tab, not just the controller's value.
     final nav = Get.find<AdminNavController>();
-
-    _tabController = TabController(
-      length: 2,
-      vsync: this,
-      initialIndex: nav.campaignEventsTabIndex.value,
-    );
-
-    _campaignEventsWorker = ever<int>(
-      nav.campaignEventsRequestId,
-          (_) {
-        final requestedIndex =
-            nav.campaignEventsTabIndex.value;
-
-        if (!_tabController.indexIsChanging &&
-            _tabController.index != requestedIndex) {
-          _tabController.animateTo(
-            requestedIndex,
-          );
-        }
-      },
-    );
+    _selectedTab = nav.campaignEventsTabIndex.value;
+    _navWorker = ever(nav.campaignEventsRequestId, (_) {
+      if (mounted) {
+        setState(() => _selectedTab = nav.campaignEventsTabIndex.value);
+      }
+    });
   }
 
   @override
   void dispose() {
-    _campaignEventsWorker?.dispose();
-    _tabController.dispose();
+    _navWorker?.dispose();
     super.dispose();
   }
-
   @override
   Widget build(BuildContext context) {
     final campaignController = Get.put(CampaignController());
     final eventController = Get.put(EventController());
+    final bool isEvents = _selectedTab == 1;
 
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
@@ -73,39 +61,40 @@ class _AdminCampaignsEventsTabState
           children: [
             // ── Header ─────────────────────────────────────────────
             Container(
-              decoration: const BoxDecoration(
+              decoration: BoxDecoration(
                 gradient: LinearGradient(
-                  colors: [
-                    Color(0xFF1B6B3A),
-                    Color(0xFF2D8A52)
-                  ],
+                  colors: isEvents
+                      ? [_blue, const Color(0xFF1E88E5)]
+                      : const [Color(0xFF1B6B3A), Color(0xFF2D8A52)],
                   begin: Alignment.topLeft,
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(
-                        20, 16, 20, 0),
-                    child: Row(
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
                       children: [
-                        const Expanded(
+                        Expanded(
                           child: Column(
                             crossAxisAlignment:
                             CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'Campaigns & Events',
-                                style: TextStyle(
+                                isEvents ? 'Events' : 'Campaigns & Projects',
+                                style: const TextStyle(
                                   color: Colors.white,
                                   fontSize: 20,
                                   fontWeight: FontWeight.bold,
                                 ),
                               ),
                               Text(
-                                'Manage donation drives and events',
-                                style: TextStyle(
+                                isEvents
+                                    ? 'Coordinate volunteer turnout'
+                                    : 'Manage campaigns, projects & sponsorships',
+                                style: const TextStyle(
                                   color: Colors.white70,
                                   fontSize: 12,
                                 ),
@@ -113,18 +102,32 @@ class _AdminCampaignsEventsTabState
                             ],
                           ),
                         ),
+                        // General Fund quick access — only relevant to
+                        // Fundraising, hidden on the Events segment.
+                        if (!isEvents)
+                          GestureDetector(
+                            onTap: () => Get.to(
+                                  () => const AdminGeneralFundScreen(),
+                              transition: Transition.rightToLeft,
+                            ),
+                            child: Container(
+                              width: 40,
+                              height: 40,
+                              margin: const EdgeInsets.only(right: 8),
+                              decoration: BoxDecoration(
+                                color: Colors.white.withOpacity(0.2),
+                                shape: BoxShape.circle,
+                                border: Border.all(color: Colors.white.withOpacity(0.4)),
+                              ),
+                              child: const Icon(Icons.savings_rounded, color: Colors.white, size: 18),
+                            ),
+                          ),
                         // Add button
                         Builder(builder: (ctx) {
                           return GestureDetector(
-                            onTap: () {
-                              if (_tabController.index == 0) {
-                                _showAddCampaignSheet(
-                                    ctx, campaignController);
-                              } else {
-                                _showAddEventSheet(
-                                    ctx, eventController);
-                              }
-                            },
+                            onTap: () => isEvents
+                                ? _showAddEventSheet(ctx, eventController)
+                                : _showAddCampaignSheet(ctx, campaignController),
                             child: Container(
                               padding: const EdgeInsets.symmetric(
                                   horizontal: 14, vertical: 8),
@@ -158,63 +161,45 @@ class _AdminCampaignsEventsTabState
                         }),
                       ],
                     ),
-                  ),
-                  const SizedBox(height: 12),
-
-                  // Tab bar
-                  TabBar(
-                    controller: _tabController,
-                    indicatorColor: Colors.white,
-                    indicatorWeight: 3,
-                    labelColor: Colors.white,
-                    unselectedLabelColor:
-                    Colors.white.withOpacity(0.6),
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
+                    const SizedBox(height: 14),
+                    // NEW — Fundraising / Events segmented toggle
+                    Container(
+                      padding: const EdgeInsets.all(3),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Row(
+                        children: [
+                          Expanded(
+                            child: _SegmentButton(
+                              label: 'Fundraising',
+                              icon: Icons.campaign_rounded,
+                              selected: !isEvents,
+                              onTap: () => setState(() => _selectedTab = 0),
+                            ),
+                          ),
+                          Expanded(
+                            child: _SegmentButton(
+                              label: 'Events',
+                              icon: Icons.event_rounded,
+                              selected: isEvents,
+                              onTap: () => setState(() => _selectedTab = 1),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    unselectedLabelStyle:
-                    const TextStyle(fontSize: 14),
-                    tabs: const [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.campaign_rounded,
-                                size: 16),
-                            SizedBox(width: 6),
-                            Text('Campaigns'),
-                          ],
-                        ),
-                      ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.event_rounded, size: 16),
-                            SizedBox(width: 6),
-                            Text('Events'),
-                          ],
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
 
-            // ── Tab Views ──────────────────────────────────────────
+            // ── List ─────────────────────────────────────────────────
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _CampaignsList(
-                      controller: campaignController),
-                  _EventsList(controller: eventController),
-                ],
-              ),
+              child: isEvents
+                  ? _EventsList(controller: eventController)
+                  : _CampaignsList(controller: campaignController),
             ),
           ],
         ),
@@ -250,6 +235,53 @@ class _AdminCampaignsEventsTabState
         BorderRadius.vertical(top: Radius.circular(24)),
       ),
       builder: (_) => _AddEventSheet(controller: controller),
+    );
+  }
+}
+
+// ==========================================================================
+// SEGMENT BUTTON (NEW) — Fundraising / Events toggle
+// ==========================================================================
+class _SegmentButton extends StatelessWidget {
+  final String label;
+  final IconData icon;
+  final bool selected;
+  final VoidCallback onTap;
+
+  const _SegmentButton({
+    required this.label,
+    required this.icon,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 180),
+        padding: const EdgeInsets.symmetric(vertical: 9),
+        decoration: BoxDecoration(
+          color: selected ? Colors.white : Colors.transparent,
+          borderRadius: BorderRadius.circular(9),
+        ),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 15, color: selected ? const Color(0xFF1B6B3A) : Colors.white),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w700,
+                color: selected ? const Color(0xFF1B6B3A) : Colors.white,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
@@ -329,6 +361,11 @@ class _CampaignCard extends StatelessWidget {
     final double progress =
     goal > 0 ? (collected / goal).clamp(0.0, 1.0) : 0.0;
     final int percent = (progress * 100).toInt();
+    // NEW — 'campaign' | 'project' | 'sponsorship'; older docs without
+    // this field are treated as plain campaigns.
+    final String category =
+    (data['category'] ?? 'campaign').toString();
+    final String categoryLabel = _categoryLabel(category);
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -379,6 +416,28 @@ class _CampaignCard extends StatelessWidget {
                           Colors.black.withOpacity(0.4),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+              ),
+
+              // Category badge — NEW (top-left; Active/Inactive keeps top-right)
+              Positioned(
+                top: 12,
+                left: 12,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.55),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    categoryLabel,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -641,6 +700,18 @@ class _CampaignCard extends StatelessWidget {
     );
   }
 
+  String _categoryLabel(String category) {
+    switch (category) {
+      case 'project':
+        return 'Project';
+      case 'sponsorship':
+        return 'Sponsorship';
+      case 'campaign':
+      default:
+        return 'Campaign';
+    }
+  }
+
   Widget _placeholder() {
     return Container(
       height: 150,
@@ -786,6 +857,7 @@ class _EventCard extends StatelessWidget {
   });
 
   static const Color _blue = Color(0xFF1565C0);
+  static const Color _green = Color(0xFF1B6B3A); // NEW — for "fully staffed" state
 
   String _monthName(String month) {
     const months = [
@@ -816,6 +888,9 @@ class _EventCard extends StatelessWidget {
     final String endDate = data['endDateStr'] ?? '';
     final String imageUrl = data['image'] ?? '';
     final bool isActive = data['isActive'] ?? true;
+    final int volunteersNeeded = (data['volunteersNeeded'] ?? 0) is int
+        ? data['volunteersNeeded'] ?? 0
+        : int.tryParse(data['volunteersNeeded'].toString()) ?? 0; // NEW
 
     final List<String> dateParts =
     startDate.isNotEmpty ? startDate.split('/') : [];
@@ -1020,7 +1095,8 @@ class _EventCard extends StatelessWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 12),
 
-                // NAYA — Participants button
+                // CHANGED — now shows progress against volunteersNeeded
+                // when the admin specified a target, not just a raw count.
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: GestureDetector(
@@ -1028,6 +1104,7 @@ class _EventCard extends StatelessWidget {
                           () => EventParticipantsScreen(
                         eventId: docId,
                         eventTitle: title,
+                        volunteersNeeded: volunteersNeeded,
                       ),
                       transition:
                       Transition.rightToLeft,
@@ -1041,37 +1118,70 @@ class _EventCard extends StatelessWidget {
                       builder: (context, snap) {
                         final count =
                             snap.data?.docs.length ?? 0;
+                        final bool hasTarget = volunteersNeeded > 0;
+                        final bool isFull = hasTarget && count >= volunteersNeeded;
+                        final double progress = hasTarget
+                            ? (count / volunteersNeeded).clamp(0.0, 1.0)
+                            : 0.0;
+
                         return Container(
                           width: double.infinity,
-                          padding:
-                          const EdgeInsets.symmetric(
-                              vertical: 10),
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color:
-                            const Color(0xFFE3F2FD),
+                            color: isFull
+                                ? const Color(0xFFE8F5E9)
+                                : const Color(0xFFE3F2FD),
                             borderRadius:
                             BorderRadius.circular(10),
                           ),
-                          child: Row(
-                            mainAxisAlignment:
-                            MainAxisAlignment.center,
+                          child: Column(
                             children: [
-                              const Icon(
-                                  Icons
-                                      .people_outline_rounded,
-                                  size: 15,
-                                  color:
-                                  Color(0xFF1565C0)),
-                              const SizedBox(width: 6),
-                              Text(
-                                '$count Volunteers Joined',
-                                style: const TextStyle(
-                                    fontSize: 12.5,
-                                    color:
-                                    Color(0xFF1565C0),
-                                    fontWeight:
-                                    FontWeight.w600),
+                              Row(
+                                mainAxisAlignment:
+                                MainAxisAlignment.center,
+                                children: [
+                                  Icon(
+                                      isFull
+                                          ? Icons.check_circle_rounded
+                                          : Icons.people_outline_rounded,
+                                      size: 15,
+                                      color: isFull ? _green : const Color(0xFF1565C0)),
+                                  const SizedBox(width: 6),
+                                  Text(
+                                    hasTarget
+                                        ? '$count of $volunteersNeeded Volunteers Joined'
+                                        : '$count Volunteers Joined',
+                                    style: TextStyle(
+                                        fontSize: 12.5,
+                                        color: isFull ? _green : const Color(0xFF1565C0),
+                                        fontWeight: FontWeight.w600),
+                                  ),
+                                ],
                               ),
+                              if (hasTarget) ...[
+                                const SizedBox(height: 8),
+                                ClipRRect(
+                                  borderRadius: BorderRadius.circular(6),
+                                  child: LinearProgressIndicator(
+                                    value: progress,
+                                    minHeight: 6,
+                                    backgroundColor: Colors.white,
+                                    valueColor: AlwaysStoppedAnimation<Color>(
+                                        isFull ? _green : const Color(0xFF1565C0)),
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                Text(
+                                  isFull
+                                      ? 'Fully staffed'
+                                      : '${volunteersNeeded - count} more needed',
+                                  style: TextStyle(
+                                    fontSize: 10.5,
+                                    color: isFull ? _green : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
                             ],
                           ),
                         );
@@ -1174,105 +1284,16 @@ class _AddCampaignSheet extends StatelessWidget {
             _Handle(),
             const SizedBox(height: 16),
             const Text(
-              'New Campaign',
+              'New Entry',
               style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.bold),
             ),
-            const SizedBox(height: 16),
+            const SizedBox(height: 12),
 
-            // Image
-            Obx(() => GestureDetector(
-              onTap: controller.pickImage,
-              child: Container(
-                height: 120,
-                width: double.infinity,
-                decoration: BoxDecoration(
-                  color:
-                  const Color(0xFFE8F5E9),
-                  borderRadius:
-                  BorderRadius.circular(14),
-                  border: Border.all(
-                      color:
-                      _green.withOpacity(0.3)),
-                ),
-                child: controller
-                    .selectedImage.value !=
-                    null
-                    ? ClipRRect(
-                  borderRadius:
-                  BorderRadius.circular(
-                      14),
-                  child: Image.file(
-                    controller
-                        .selectedImage.value!,
-                    fit: BoxFit.cover,
-                  ),
-                )
-                    : const Column(
-                  mainAxisAlignment:
-                  MainAxisAlignment.center,
-                  children: [
-                    Icon(
-                        Icons
-                            .add_photo_alternate_outlined,
-                        size: 32,
-                        color: _green),
-                    SizedBox(height: 6),
-                    Text(
-                        'Add Banner Image',
-                        style: TextStyle(
-                            color: _green,
-                            fontSize: 12)),
-                  ],
-                ),
-              ),
-            )),
-            const SizedBox(height: 14),
-
-            _FormField2(
-                controller:
-                controller.titleController,
-                label: 'Campaign Title *',
-                hint:
-                'e.g. Winter Clothes Drive'),
-            const SizedBox(height: 10),
-            _FormField2(
-                controller:
-                controller.descController,
-                label: 'Description *',
-                hint:
-                'What is this campaign about?',
-                maxLines: 2),
-            const SizedBox(height: 10),
-            _FormField2(
-                controller:
-                controller.goalController,
-                label: 'Goal Amount (Rs.) *',
-                hint: 'e.g. 50000',
-                keyboardType:
-                TextInputType.number),
-            const SizedBox(height: 10),
-
-            GestureDetector(
-              onTap: () =>
-                  _pickDate(context, controller),
-              child: AbsorbPointer(
-                child: _FormField2(
-                  controller:
-                  controller.endDateController,
-                  label: 'End Date',
-                  hint: 'Select end date',
-                  suffixIcon:
-                  Icons.calendar_today_outlined,
-                ),
-              ),
-            ),
-            const SizedBox(height: 14),
-
-            // Needs
+            // NEW — what kind of fundraising entry this is
             const Text(
-              'Urgent Needs',
+              'Type',
               style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600),
@@ -1281,54 +1302,195 @@ class _AddCampaignSheet extends StatelessWidget {
             Obx(() => Wrap(
               spacing: 8,
               runSpacing: 8,
-              children: controller.allNeeds
-                  .map((need) {
-                final sel = controller
-                    .selectedNeeds
-                    .contains(need);
+              children: const [
+                {'value': 'campaign', 'label': 'Campaign'},
+                {'value': 'project', 'label': 'Project'},
+                {'value': 'sponsorship', 'label': 'Sponsor a Child'},
+              ].map((opt) {
+                final bool sel =
+                    controller.selectedCategory.value == opt['value'];
                 return GestureDetector(
                   onTap: () =>
-                      controller.toggleNeed(need),
+                      controller.selectCategory(opt['value']!), // CHANGED
                   child: Container(
-                    padding:
-                    const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 6),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 14, vertical: 8),
                     decoration: BoxDecoration(
-                      color: sel
-                          ? _green
-                          : const Color(
-                          0xFFF4F6F8),
-                      borderRadius:
-                      BorderRadius.circular(
-                          20),
+                      color: sel ? _green : const Color(0xFFF4F6F8),
+                      borderRadius: BorderRadius.circular(20),
                       border: Border.all(
-                        color: sel
-                            ? _green
-                            : Colors
-                            .grey.shade300,
+                        color: sel ? _green : Colors.grey.shade300,
                       ),
                     ),
                     child: Text(
-                      need,
+                      opt['label']!,
                       style: TextStyle(
                         fontSize: 12,
-                        color: sel
-                            ? Colors.white
-                            : Colors.grey[700],
-                        fontWeight: sel
-                            ? FontWeight.w600
-                            : FontWeight.normal,
+                        color: sel ? Colors.white : Colors.grey[700],
+                        fontWeight:
+                        sel ? FontWeight.w700 : FontWeight.normal,
                       ),
                     ),
                   ),
                 );
               }).toList(),
             )),
+            const SizedBox(height: 16),
+
+            // Photo / Banner Image
+            // CHANGED — branches by type. Sponsorship gets a circular
+            // "child photo" picker (matches how a sponsorship profile
+            // photo actually looks); Campaign/Project keep the exact
+            // rectangular banner picker they always had.
+            Obx(() {
+              final bool isSponsorship =
+                  controller.selectedCategory.value == 'sponsorship';
+
+              if (isSponsorship) {
+                return Center(child: _ChildPhotoPicker(controller: controller));
+              }
+
+              return GestureDetector(
+                onTap: controller.pickImage,
+                child: Container(
+                  height: 120,
+                  width: double.infinity,
+                  decoration: BoxDecoration(
+                    color:
+                    const Color(0xFFE8F5E9),
+                    borderRadius:
+                    BorderRadius.circular(14),
+                    border: Border.all(
+                        color:
+                        _green.withOpacity(0.3)),
+                  ),
+                  child: controller
+                      .selectedImage.value !=
+                      null
+                      ? ClipRRect(
+                    borderRadius:
+                    BorderRadius.circular(
+                        14),
+                    child: buildPickedImagePreview(
+                      controller.selectedImage.value!,
+                      fit: BoxFit.cover,
+                    ),
+                  )
+                      : const Column(
+                    mainAxisAlignment:
+                    MainAxisAlignment.center,
+                    children: [
+                      Icon(
+                          Icons
+                              .add_photo_alternate_outlined,
+                          size: 32,
+                          color: _green),
+                      SizedBox(height: 6),
+                      Text(
+                          'Add Banner Image',
+                          style: TextStyle(
+                              color: _green,
+                              fontSize: 12)),
+                    ],
+                  ),
+                ),
+              );
+            }),
+            const SizedBox(height: 14),
+
+            // Fields — CHANGED — a genuinely separate field set for
+            // Sponsorship (Name / Age / About / fixed monthly amount)
+            // instead of relabeled Campaign fields. Campaign/Project
+            // keep the exact same fields, in the exact same order,
+            // as before.
+            Obx(() {
+              final bool isSponsorship =
+                  controller.selectedCategory.value == 'sponsorship';
+
+              if (isSponsorship) {
+                return _SponsorshipFields(controller: controller);
+              }
+
+              return Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _FormField2(
+                      controller: controller.titleController,
+                      label: controller.selectedCategory.value == 'project'
+                          ? 'Project Title *'
+                          : 'Campaign Title *',
+                      hint: 'e.g. Winter Clothes Drive'),
+                  const SizedBox(height: 10),
+                  _FormField2(
+                      controller: controller.descController,
+                      label: 'Description *',
+                      hint: 'What is this campaign about?',
+                      maxLines: 2),
+                  const SizedBox(height: 10),
+                  _FormField2(
+                      controller: controller.goalController,
+                      label: 'Goal Amount (Rs.) *',
+                      hint: 'e.g. 50000',
+                      keyboardType: TextInputType.number),
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => _pickDate(context, controller),
+                    child: AbsorbPointer(
+                      child: _FormField2(
+                        controller: controller.endDateController,
+                        label: 'End Date',
+                        hint: 'Select end date',
+                        suffixIcon: Icons.calendar_today_outlined,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  const Text(
+                    'Urgent Needs',
+                    style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600),
+                  ),
+                  const SizedBox(height: 8),
+                  Obx(() => Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: controller.allNeeds.map((need) {
+                      final sel = controller.selectedNeeds.contains(need);
+                      return GestureDetector(
+                        onTap: () => controller.toggleNeed(need),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: sel ? _green : const Color(0xFFF4F6F8),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(
+                              color: sel ? _green : Colors.grey.shade300,
+                            ),
+                          ),
+                          child: Text(
+                            need,
+                            style: TextStyle(
+                              fontSize: 12,
+                              color: sel ? Colors.white : Colors.grey[700],
+                              fontWeight:
+                              sel ? FontWeight.w600 : FontWeight.normal,
+                            ),
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  )),
+                ],
+              );
+            }),
             const SizedBox(height: 20),
 
             Obx(() => _SubmitBtn(
-              label: 'Add Campaign',
+              label: controller.selectedCategory.value == 'sponsorship'
+                  ? 'Add Sponsorship'
+                  : controller.selectedCategory.value == 'project'
+                  ? 'Add Project'
+                  : 'Add Campaign',
               color: _green,
               isLoading:
               controller.isLoading.value,
@@ -1428,9 +1590,8 @@ class _AddEventSheet extends StatelessWidget {
                   borderRadius:
                   BorderRadius.circular(
                       14),
-                  child: Image.file(
-                    controller
-                        .selectedImage.value!,
+                  child: buildPickedImagePreview(
+                    controller.selectedImage.value!,
                     fit: BoxFit.cover,
                   ),
                 )
@@ -1476,6 +1637,17 @@ class _AddEventSheet extends StatelessWidget {
               hint: 'e.g. LSOH, Wah Cantt',
               suffixIcon:
               Icons.location_on_outlined,
+            ),
+            const SizedBox(height: 10),
+            // NEW — lets Admin flag how many volunteers this event
+            // needs, so volunteers see "X of Y joined" and Admin can
+            // tell at a glance whether an event is fully staffed.
+            _FormField2(
+              controller: controller.volunteersNeededController,
+              label: 'Volunteers Needed (Optional)',
+              hint: 'e.g. 10',
+              keyboardType: TextInputType.number,
+              suffixIcon: Icons.people_outline_rounded,
             ),
             const SizedBox(height: 10),
 
@@ -1602,6 +1774,127 @@ class _EmptyEvents extends StatelessWidget {
     );
   }
 }
+
+// ==========================================================================
+// CHILD PHOTO PICKER (NEW) — circular picker for a Sponsor-a-Child entry.
+// A portrait child photo (matching the printed sponsorship flyers) reads
+// far better as a circular avatar than the rectangular campaign banner,
+// so this is a distinct widget rather than reusing the banner picker.
+// ==========================================================================
+class _ChildPhotoPicker extends StatelessWidget {
+  final CampaignController controller;
+  const _ChildPhotoPicker({required this.controller});
+
+  static const Color _green = Color(0xFF1B6B3A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Obx(() {
+      final picked = controller.selectedImage.value;
+      return GestureDetector(
+        onTap: controller.pickImage,
+        child: Column(
+          children: [
+            Container(
+              width: 110,
+              height: 110,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: const Color(0xFFE8F5E9),
+                border: Border.all(color: _green.withOpacity(0.35), width: 2),
+              ),
+              child: picked != null
+                  ? ClipOval(
+                child: buildPickedImagePreview(picked, fit: BoxFit.cover),
+              )
+                  : const Icon(Icons.child_care_rounded, size: 42, color: _green),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              picked != null ? 'Change Photo' : "Add Child's Photo *",
+              style: const TextStyle(color: _green, fontSize: 12, fontWeight: FontWeight.w600),
+            ),
+          ],
+        ),
+      );
+    });
+  }
+}
+
+// ==========================================================================
+// SPONSORSHIP FIELDS (NEW) — genuinely separate form for a Sponsor-a-Child
+// entry: Name / Age / About the Child, plus a fixed (non-editable) monthly
+// amount summary. Deliberately has NO end date and NO "needs" checklist —
+// a child's sponsorship is an open-ended program, not a time-bound drive,
+// and the 6 support categories are fixed program policy, not a per-entry
+// checklist (see lib/models/sponsorship_categories.dart).
+// ==========================================================================
+class _SponsorshipFields extends StatelessWidget {
+  final CampaignController controller;
+  const _SponsorshipFields({required this.controller});
+
+  static const Color _green = Color(0xFF1B6B3A);
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _FormField2(
+          controller: controller.titleController,
+          label: "Child's Name *",
+          hint: 'e.g. Sufyan',
+        ),
+        const SizedBox(height: 10),
+        _FormField2(
+          controller: controller.ageController,
+          label: 'Age *',
+          hint: 'e.g. 4 years',
+        ),
+        const SizedBox(height: 10),
+        _FormField2(
+          controller: controller.descController,
+          label: 'About the Child *',
+          hint: 'e.g. Sharp in studies, has a bright future ahead.',
+          maxLines: 2,
+        ),
+        const SizedBox(height: 14),
+        Container(
+          width: double.infinity,
+          padding: const EdgeInsets.all(14),
+          decoration: BoxDecoration(
+            color: const Color(0xFFE8F5E9),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: _green.withOpacity(0.25)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.volunteer_activism_rounded, color: _green, size: 20),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text(
+                      'Rs. 30,000 / month',
+                      style: TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _green),
+                    ),
+                    Text(
+                      'Full Sponsorship — fixed across all 6 support categories. '
+                          'Donors can also sponsor individual categories.',
+                      style: TextStyle(fontSize: 10.5, color: Colors.grey[600], height: 1.3),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 
 // ==========================================================================
 // SHARED SMALL WIDGETS

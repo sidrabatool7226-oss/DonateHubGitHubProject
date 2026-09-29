@@ -1,7 +1,7 @@
 import 'forgot_password_screen.dart';
 import 'package:flutter/material.dart';
 import '../../services/auth_service.dart';
-
+import 'package:flutter/foundation.dart' show kIsWeb;
 // Important: Ensure you import your admin dashboard file here
 // import 'admin_dashboard.dart';
 
@@ -101,29 +101,20 @@ class _LoginScreenState extends State<LoginScreen> {
     if (role == 'admin') {
       Navigator.pushReplacementNamed(
         context,
-        '/admin_dashboard',
+        kIsWeb ? '/admin_dashboard_web' : '/admin_dashboard',
       );
     } else if (role == 'manager') {
       Navigator.pushReplacementNamed(
         context,
-        '/manager_dashboard',
+        kIsWeb ? '/manager_dashboard_web' : '/manager_dashboard',
       );
     } else if (role == 'donor') {
-      Navigator.pushReplacementNamed(
-        context,
-        '/donor_dashboard',
-      );
+      Navigator.pushReplacementNamed(context, '/donor_dashboard');
     } else if (role == 'volunteer') {
       if (!isProfileComplete) {
-        Navigator.pushReplacementNamed(
-          context,
-          '/volunteer_form',
-        );
+        Navigator.pushReplacementNamed(context, '/volunteer_form');
       } else {
-        Navigator.pushReplacementNamed(
-          context,
-          '/verification_status',
-        );
+        Navigator.pushReplacementNamed(context, '/verification_status');
       }
     }
   }

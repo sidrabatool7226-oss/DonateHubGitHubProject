@@ -15,6 +15,10 @@ class ManagerDonationsController extends GetxController {
 
   var selectedType = 'fund'.obs;
   var selectedStatus = 'pending'.obs;
+  // NEW — categorizes Fund donations by where they went, per the
+  // Campaign/Project/Sponsorship split (Phase 3). Only meaningful
+  // when selectedType == 'fund'.
+  var selectedTargetFilter = 'all'.obs; // 'all' | 'campaign' | 'project' | 'sponsorship'
 
   var isProcessing = false.obs;
   var isSaving = false.obs;
@@ -109,6 +113,68 @@ class ManagerDonationsController extends GetxController {
       final campaignId = donationData['campaignId'];
       final double approvedAmount = double.tryParse(amountController.text.trim()) ?? 0;
 
+      // NEW — a Sponsor-a-Child payment (Phase 2/3). These donations
+      // never set campaignId (see SponsorshipController), so the
+      // existing campaignId branch below is naturally skipped for
+      // them; this handles their own two effects instead:
+      //   1) the linked 'sponsorships' record becomes 'active'
+      //   2) the child's 'collectedAmount' (on the SAME 'campaigns'
+      //      doc Admin's existing Campaigns & Projects card already
+      //      renders) is refreshed to the current total of all active
+      //      sponsorships for that child — so that existing card's
+      //      Raised/Goal/% Funded display works for a child exactly
+      //      like it already does for a Campaign/Project, with no
+      //      changes needed to that card at all.
+      final String donationTargetType = (donationData['donationTargetType'] ?? '').toString();
+      final String? sponsorshipId = donationData['sponsorshipId']?.toString();
+      final String? childId = donationData['donationTargetId']?.toString();
+
+      if (donationTargetType == 'sponsorship' && sponsorshipId != null && sponsorshipId.isNotEmpty) {
+        try {
+          await _db.collection('sponsorships').doc(sponsorshipId).update({
+            'status': 'active',
+            'activatedAt': FieldValue.serverTimestamp(),
+          });
+
+          if (childId != null && childId.isNotEmpty) {
+            final activeSnap = await _db
+                .collection('sponsorships')
+                .where('childId', isEqualTo: childId)
+                .where('status', isEqualTo: 'active')
+                .get();
+
+            int totalCoverage = 0;
+            for (final d in activeSnap.docs) {
+              final amt = (d.data())['monthlyAmount'];
+              if (amt is num) totalCoverage += amt.toInt();
+            }
+
+            await _db.collection('campaigns').doc(childId).update({
+              'collectedAmount': totalCoverage,
+            });
+          }
+        } catch (_) {
+          // Best-effort only — the payment itself must still be
+          // approved even if this secondary bookkeeping fails; a
+          // Manager can re-open this donation and it will retry.
+        }
+      }
+
+      // NEW — General Fund (Phase 4). Unlike Campaign/Project, General
+      // Fund is an independent target with its OWN running total,
+      // never attached to a Project (per requirements) — tracked on a
+      // single 'general_fund/summary' doc rather than the 'campaigns'
+      // collection, since it isn't a card with a goal/deadline.
+      if (donationTargetType == 'general_fund') {
+        try {
+          await _db.collection('general_fund').doc('summary').set({
+            'totalReceived': FieldValue.increment(approvedAmount),
+          }, SetOptions(merge: true));
+        } catch (_) {
+          // Best-effort only — same reasoning as the sponsorship branch above.
+        }
+      }
+
       // Batch: donation status + campaign amount + donor reward points
       // all commit together — avoids a partial-success state.
       WriteBatch batch = _db.batch();
@@ -146,8 +212,11 @@ class ManagerDonationsController extends GetxController {
       await _db.collection('notifications').add({
         'toUserId': donorId,
         'title': 'Donation Verified! ✅',
-        'message':
-        'Your fund donation of Rs. ${approvedAmount.toStringAsFixed(0)} has been verified. Thank you for your generosity!',
+        'message': donationTargetType == 'sponsorship'
+            ? 'Your Rs. ${approvedAmount.toStringAsFixed(0)} sponsorship payment for ${donationData['donationTargetName'] ?? 'the child'} has been verified. Thank you!'
+            : donationTargetType == 'general_fund'
+            ? 'Your Rs. ${approvedAmount.toStringAsFixed(0)} donation to our General Fund has been verified. Thank you for your generosity!'
+            : 'Your fund donation of Rs. ${approvedAmount.toStringAsFixed(0)} has been verified. Thank you for your generosity!',
         'type': 'donation_approved',
         'entityId': donationId,
         'isRead': false,
@@ -256,6 +325,22 @@ class ManagerDonationsController extends GetxController {
       }
 
       final donorId = donationData['donorId'] ?? '';
+
+      // NEW — mirror this rejection onto the linked sponsorship record
+      // (if any), so an already-rejected commitment isn't left dangling
+      // in 'pending' forever.
+      final String? sponsorshipId = donationData['sponsorshipId']?.toString();
+      if ((donationData['donationTargetType'] ?? '') == 'sponsorship' &&
+          sponsorshipId != null &&
+          sponsorshipId.isNotEmpty) {
+        try {
+          await _db.collection('sponsorships').doc(sponsorshipId).update({
+            'status': 'rejected',
+          });
+        } catch (_) {
+          // Best-effort only — the donation itself must still be rejected.
+        }
+      }
 
       await _db.collection('donations').doc(donationId).update({
         'status': 'rejected',

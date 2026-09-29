@@ -6,6 +6,8 @@
 // ============================================================
 
 import 'dart:io';
+import 'dart:convert'; // NEW — for image hash
+import 'package:crypto/crypto.dart'; // NEW — for image hash
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -173,6 +175,10 @@ class _CampaignDonationSheetState extends State<CampaignDonationSheet> {
         return;
       }
 
+      // NEW — hash of the raw file bytes, for duplicate-screenshot detection.
+      final String imageHash =
+      sha256.convert(await _receiptFile!.readAsBytes()).toString();
+
       _controller.amountController.text = _amountCtrl.text.trim();
       _controller.selectedPaymentMethod.value = _selectedPaymentMethod!;
 
@@ -181,6 +187,7 @@ class _CampaignDonationSheetState extends State<CampaignDonationSheet> {
         campaignName: widget.campaignName,
         paymentProofUrl: proofUrl,
         transactionId: _txnIdCtrl.text.trim(),
+        imageHash: imageHash, // NEW
         ocrAmount: _ocrResult?.amount,
         ocrTransactionId: _ocrResult?.transactionId,
         ocrPaymentMethod: _ocrResult?.paymentMethod,
@@ -193,7 +200,8 @@ class _CampaignDonationSheetState extends State<CampaignDonationSheet> {
       if (!mounted) return;
       if (ok) Navigator.pop(context);
     } catch (e) {
-      _snack('Something went wrong. Please try again.', isError: true);
+      // TEMPORARY — was the generic message, hiding the real reason.
+      _snack('Error: $e', isError: true);
     } finally {
       if (mounted) setState(() => _isSubmitting = false);
     }

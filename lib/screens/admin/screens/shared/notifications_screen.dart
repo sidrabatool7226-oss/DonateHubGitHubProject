@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../../controllers/notifications_controller.dart';
-import '../../controllers/notifications_controller.dart';
+import '../../../volunteer/screens/volunteer_task_detail_screen.dart'; // NEW — task_assigned tap-through
 
 class NotificationsScreen extends StatelessWidget {
   final Color accentColor;
@@ -213,6 +213,23 @@ class _NotificationTile extends StatelessWidget {
             final doc = await FirebaseFirestore.instance.collection('donations').doc(entityId).get();
             if (doc.exists) {
               Get.toNamed('/donation_detail', arguments: {'docId': doc.id, 'data': doc.data()});
+              return;
+            }
+          }
+          break;
+
+      // NEW — previously fell through to the default no-op below,
+      // so tapping a Volunteer's "New Pickup Task Assigned" (or a
+      // rejection follow-up) notification did nothing at all.
+        case 'task_assigned':
+        case 'task_rejected':
+          if (entityId.isNotEmpty) {
+            final doc = await FirebaseFirestore.instance.collection('tasks').doc(entityId).get();
+            if (doc.exists) {
+              Get.to(() => VolunteerTaskDetailScreen(
+                taskId: doc.id,
+                data: doc.data() as Map<String, dynamic>,
+              ));
               return;
             }
           }

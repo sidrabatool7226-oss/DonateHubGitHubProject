@@ -11,13 +11,17 @@
 // ============================================================
 
 import 'dart:io';
+import 'dart:convert'; // NEW — for image hash
+import 'package:crypto/crypto.dart'; // NEW — for image hash
 import 'package:cloud_firestore/cloud_firestore.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // NEW
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../../controllers/donor_campaign_controller.dart';
 import '../../models/payment_account.dart';
+import 'sponsor_a_child_screen.dart'; // NEW
 import '../../services/cloudinary_service.dart';
 import '../../services/ocr_service.dart';
 import '../../services/receipt_parser.dart';
@@ -52,6 +56,22 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
   double? _selectedPreset;
   String? _selectedPaymentMethod;
 
+  // NEW — 'campaign' | 'project' | 'general_fund'. Donor picks this
+  // first; it decides what _buildCampaignSelector() shows below it.
+  String _donationTarget = 'campaign';
+
+  // NEW — only used when _donationTarget == 'general_fund'. Purely
+  // informational tagging for Manager/Admin ("what did the donor have
+  // in mind") — the money still goes into the same unallocated General
+  // Fund balance regardless of this choice.
+  String? _generalFundPurpose;
+  static const List<String> _generalFundPurposes = [
+    'Zakat',
+    'Sadqah',
+    'Disaster Relief',
+    'Medical Emergencies',
+  ];
+
   File? _receiptFile;
 
   bool _isScanning = false;
@@ -62,6 +82,8 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
 
   final List<int> _presets = [500, 1000, 5000, 10000, 50000];
 
+  bool _loadingProfile = true; // NEW
+
   @override
   void initState() {
     super.initState();
@@ -69,6 +91,32 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
     _controller = Get.isRegistered<DonorCampaignController>()
         ? Get.find<DonorCampaignController>()
         : Get.put(DonorCampaignController());
+
+    _loadDonorProfile(); // NEW
+  }
+
+  // NEW — pulls phone/CNIC from the donor's own signup profile instead of
+  // asking them to retype it here. These fields are then shown read-only
+  // (see _buildDonorDetailsFields) so a donor can never submit a payment
+  // under different contact details than the ones on file.
+  Future<void> _loadDonorProfile() async {
+    try {
+      final uid = FirebaseAuth.instance.currentUser?.uid;
+      if (uid != null) {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(uid).get();
+        final data = doc.data();
+        if (data != null && mounted) {
+          _phoneCtrl.text = (data['mobileNumber'] ?? '').toString();
+          _cnicCtrl.text = (data['cnic'] ?? data['passportNumber'] ?? '').toString();
+        }
+      }
+    } catch (_) {
+      // If this fails, the fields simply stay empty and _validate() below
+      // will ask the donor to complete their profile — never silently
+      // lets an incomplete/incorrect submission through.
+    } finally {
+      if (mounted) setState(() => _loadingProfile = false);
+    }
   }
 
   @override
@@ -227,6 +275,14 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
   String? _validate() {
     final double? amt = _finalAmount;
 
+    // NEW — Campaign/Project now require an actual pick, since
+    // "no specific campaign" is its own top-level General Fund choice.
+    if (_donationTarget != 'general_fund' && _selectedCampaignId == null) {
+      return _donationTarget == 'project'
+          ? 'Please select a project'
+          : 'Please select a campaign';
+    }
+
     if (amt == null || amt < 10) {
       return 'Minimum donation amount is Rs. 10';
     }
@@ -240,11 +296,11 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
     }
 
     if (_phoneCtrl.text.trim().isEmpty) {
-      return 'Please enter your phone number';
+      return 'Please add your phone number in Profile before donating';
     }
 
     if (_cnicCtrl.text.trim().isEmpty) {
-      return 'Please enter your CNIC number';
+      return 'Please add your CNIC in Profile before donating';
     }
 
     if (_receiptFile == null) {
@@ -288,6 +344,11 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
       final String? proofUrl =
       await _cloudinary.uploadImage(_receiptFile!);
 
+      // NEW — hash of the raw file bytes, used for duplicate-screenshot
+      // detection (separate from OCR's transaction-ID text check).
+      final String imageHash =
+      sha256.convert(await _receiptFile!.readAsBytes()).toString();
+
       if (proofUrl == null || proofUrl.trim().isEmpty) {
         if (mounted) {
           _snack(
@@ -320,8 +381,11 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
       final bool ok = await _controller.donateToCampaign(
         campaignId: _selectedCampaignId,
         campaignName: _selectedCampaignName,
+        donationTargetType: _donationTarget, // NEW
+        generalFundPurpose: _generalFundPurpose, // NEW
         paymentProofUrl: proofUrl,
         transactionId: _txnIdCtrl.text.trim(),
+        imageHash: imageHash, // NEW
         ocrAmount: _ocrResult?.amount,
         ocrTransactionId: _ocrResult?.transactionId,
         ocrPaymentMethod: _ocrResult?.paymentMethod,
@@ -340,8 +404,12 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
       debugPrint('Donation submission error: $e');
 
       if (mounted) {
+        // TEMPORARY — was the generic 'Something went wrong.' message,
+        // which hid the real reason. Showing the actual exception so we
+        // can see exactly what's failing; revert to the generic message
+        // once the real cause is found and fixed.
         _snack(
-          'Something went wrong. Please try again.',
+          'Error: $e',
           isError: true,
         );
       }
@@ -539,9 +607,21 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _sectionLabel('Select Campaign (Optional)'),
+                  _sectionLabel('Where would you like to donate?'),
                   const SizedBox(height: 12),
-                  _buildCampaignSelector(),
+                  _buildTargetTypeSelector(),
+
+                  const SizedBox(height: 20),
+
+                  if (_donationTarget == 'general_fund')
+                    _buildGeneralFundInfoCard()
+                  else ...[
+                    _sectionLabel(
+                      _donationTarget == 'project' ? 'Select a Project' : 'Select a Campaign',
+                    ),
+                    const SizedBox(height: 12),
+                    _buildCampaignSelector(),
+                  ],
 
                   const SizedBox(height: 24),
 
@@ -617,6 +697,141 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
   }
 
   // ==========================================================================
+  // DONATION TARGET SELECTOR (NEW) — Campaign / Project / General Fund
+  // ==========================================================================
+
+  Widget _buildTargetTypeSelector() {
+    final List<Map<String, dynamic>> options = [
+      {'value': 'campaign', 'label': 'Campaign', 'icon': Icons.campaign_rounded},
+      {'value': 'project', 'label': 'Project', 'icon': Icons.rocket_launch_rounded},
+      {'value': 'general_fund', 'label': 'Fund', 'icon': Icons.savings_rounded}, // CHANGED — label was "General Fund"
+      {'value': 'sponsor', 'label': 'Sponsor', 'icon': Icons.child_care_rounded}, // NEW
+    ];
+
+    return Row(
+      children: options.map((opt) {
+        final bool selected = _donationTarget == opt['value'];
+        final bool isLast = opt['value'] == 'sponsor';
+        final bool isSponsorTile = opt['value'] == 'sponsor';
+
+        return Expanded(
+          child: GestureDetector(
+            onTap: () {
+              // NEW — Sponsorship needs its own Full/Partial category
+              // picker (see ChildSponsorshipDetailScreen), which doesn't
+              // fit this screen's simple amount field, so this tile just
+              // hands off to the dedicated Sponsor-a-Child flow instead
+              // of changing this screen's own state.
+              if (isSponsorTile) {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (_) => const SponsorAChildScreen()),
+                );
+                return;
+              }
+              setState(() {
+                _donationTarget = opt['value'] as String;
+                // Reset the specific selection — a Campaign chosen under
+                // "Project" (or vice versa) would be meaningless.
+                _selectedCampaignId = null;
+                _selectedCampaignName = null;
+              });
+            },
+            child: Container(
+              margin: EdgeInsets.only(right: isLast ? 0 : 8),
+              padding: const EdgeInsets.symmetric(vertical: 12),
+              decoration: BoxDecoration(
+                color: selected ? _green : Colors.white,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(color: selected ? _green : Colors.grey[300]!),
+                boxShadow: selected
+                    ? [BoxShadow(color: _green.withOpacity(0.25), blurRadius: 8, offset: const Offset(0, 3))]
+                    : null,
+              ),
+              child: Column(
+                children: [
+                  Icon(opt['icon'] as IconData, color: selected ? Colors.white : _green, size: 20),
+                  const SizedBox(height: 5),
+                  Text(
+                    opt['label'] as String,
+                    style: TextStyle(
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
+                      color: selected ? Colors.white : Colors.grey[700],
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
+
+  Widget _buildGeneralFundInfoCard() {
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE8F5E9),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: _green.withOpacity(0.25)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const Icon(Icons.savings_rounded, color: _green, size: 22),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'General Support Fund',
+                  style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold, color: _green),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  'Supports flexible needs — food, utilities, medical care, maintenance, and emergencies — allocated transparently by our team as priorities arise.',
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey[700], height: 1.4),
+                ),
+                const SizedBox(height: 12),
+                const Text(
+                  'Purpose (Optional)',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w600, color: _green),
+                ),
+                const SizedBox(height: 6),
+                Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.symmetric(horizontal: 12),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: _green.withOpacity(0.25)),
+                  ),
+                  child: DropdownButtonHideUnderline(
+                    child: DropdownButton<String>(
+                      value: _generalFundPurpose,
+                      isExpanded: true,
+                      hint: const Text('e.g. Zakat, Sadqah...', style: TextStyle(fontSize: 12.5, color: Colors.grey)),
+                      icon: const Icon(Icons.keyboard_arrow_down_rounded, color: _green),
+                      items: _generalFundPurposes
+                          .map((p) => DropdownMenuItem(value: p, child: Text(p, style: const TextStyle(fontSize: 12.5))))
+                          .toList(),
+                      onChanged: (value) => setState(() => _generalFundPurpose = value),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // ==========================================================================
   // CAMPAIGN SELECTOR
   // ==========================================================================
 
@@ -624,7 +839,14 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
     return StreamBuilder<QuerySnapshot>(
       stream: _controller.campaignsStream,
       builder: (context, snapshot) {
-        final campaigns = snapshot.data?.docs ?? [];
+        // NEW — only show entries matching the chosen target type
+        // (Campaign or Project); Sponsorship entries never appear here
+        // (they have their own dedicated Sponsor-a-Child flow).
+        final campaigns = (snapshot.data?.docs ?? []).where((doc) {
+          final data = doc.data() as Map<String, dynamic>;
+          final String cat = (data['category'] ?? 'campaign').toString();
+          return cat == _donationTarget;
+        }).toList();
 
         return Container(
           padding: const EdgeInsets.symmetric(
@@ -641,9 +863,9 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
             child: DropdownButton<String?>(
               value: _selectedCampaignId,
               isExpanded: true,
-              hint: const Text(
-                'General Fund (No specific campaign)',
-                style: TextStyle(
+              hint: Text(
+                _donationTarget == 'project' ? 'Select a project' : 'Select a campaign',
+                style: const TextStyle(
                   fontSize: 13,
                   color: Colors.grey,
                 ),
@@ -653,13 +875,6 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
                 color: Colors.grey,
               ),
               items: [
-                const DropdownMenuItem<String?>(
-                  value: null,
-                  child: Text(
-                    'General Fund (No specific campaign)',
-                    style: TextStyle(fontSize: 13),
-                  ),
-                ),
                 ...campaigns.map((doc) {
                   final data =
                   doc.data() as Map<String, dynamic>;
@@ -815,25 +1030,35 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
   // ==========================================================================
 
   Widget _buildDonorDetailsFields() {
+    // NEW — if either value is still empty after loading, the donor's
+    // profile is missing it (e.g. signed up before this field existed).
+    final bool phoneMissing = !_loadingProfile && _phoneCtrl.text.trim().isEmpty;
+    final bool cnicMissing = !_loadingProfile && _cnicCtrl.text.trim().isEmpty;
+
     return Column(
       children: [
         TextField(
           controller: _phoneCtrl,
+          readOnly: true, // NEW — always taken from the donor's profile
           keyboardType: TextInputType.phone,
+          style: TextStyle(color: phoneMissing ? Colors.grey[500] : const Color(0xFF1A1A1A)),
           decoration: InputDecoration(
-            hintText: 'Phone Number *',
-            prefixIcon: const Icon(
-              Icons.phone_outlined,
-              size: 18,
-            ),
+            hintText: phoneMissing ? 'Add your phone number in Profile first' : 'Phone Number *',
+            prefixIcon: const Icon(Icons.phone_outlined, size: 18),
+            suffixIcon: Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey[400]),
             filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 14,
-              horizontal: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+            fillColor: phoneMissing ? Colors.grey[100] : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 4, left: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'From your profile — cannot be changed here',
+              style: TextStyle(fontSize: 10.5, color: Colors.grey),
             ),
           ),
         ),
@@ -842,21 +1067,26 @@ class _DonateFundsScreenState extends State<DonateFundsScreen> {
 
         TextField(
           controller: _cnicCtrl,
+          readOnly: true, // NEW — always taken from the donor's profile
           keyboardType: TextInputType.number,
+          style: TextStyle(color: cnicMissing ? Colors.grey[500] : const Color(0xFF1A1A1A)),
           decoration: InputDecoration(
-            hintText: 'CNIC Number *',
-            prefixIcon: const Icon(
-              Icons.badge_outlined,
-              size: 18,
-            ),
+            hintText: cnicMissing ? 'Add your CNIC in Profile first' : 'CNIC Number *',
+            prefixIcon: const Icon(Icons.badge_outlined, size: 18),
+            suffixIcon: Icon(Icons.lock_outline_rounded, size: 16, color: Colors.grey[400]),
             filled: true,
-            fillColor: Colors.white,
-            contentPadding: const EdgeInsets.symmetric(
-              vertical: 14,
-              horizontal: 14,
-            ),
-            border: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+            fillColor: cnicMissing ? Colors.grey[100] : Colors.white,
+            contentPadding: const EdgeInsets.symmetric(vertical: 14, horizontal: 14),
+            border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          ),
+        ),
+        const Padding(
+          padding: EdgeInsets.only(top: 4, left: 4),
+          child: Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              'From your profile — cannot be changed here',
+              style: TextStyle(fontSize: 10.5, color: Colors.grey),
             ),
           ),
         ),

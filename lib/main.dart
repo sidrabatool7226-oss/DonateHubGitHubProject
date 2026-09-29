@@ -29,6 +29,10 @@ import 'screens/manager/manager_dashboard.dart';
 import 'screens/volunteer/volunteer_registration_form_screen.dart';
 import 'screens/volunteer/verification_status_screen.dart';
 import 'screens/volunteer/volunteer_dashboard.dart';
+import 'screens/admin/web/admin_web_dashboard.dart';
+import 'screens/manager/web/manager_web_dashboard.dart';
+import 'package:flutter/foundation.dart' show kIsWeb;
+import 'screens/auth/login_screen_web.dart';
 
 @pragma('vm:entry-point')
 Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
@@ -85,7 +89,6 @@ class DonateHubApp extends StatelessWidget {
       initialRoute: '/',
       getPages: [
         GetPage(name: '/', page: () => const SplashScreen()),
-        GetPage(name: '/login', page: () => const LoginScreen()),
         GetPage(name: '/signup', page: () => const SignupScreen()),
         GetPage(name: '/donate_items', page: () => const CategorySelectionScreen()),
         GetPage(name: '/donate_funds', page: () => const DonateFundsScreen()),
@@ -95,11 +98,31 @@ class DonateHubApp extends StatelessWidget {
         GetPage(name: '/create_utilization', page: () => CreateUtilizationScreen()),
         GetPage(name: '/donor_impact', page: () => const DonorImpactScreen()),
         GetPage(name: '/donor_dashboard', page: () => const DonorDashboard()),
-        GetPage(name: '/donation_detail', page: () => DonationDetailScreen(docId: '', data: {})),
+        GetPage(
+          name: '/donation_detail',
+          // FIXED — this previously always built DonationDetailScreen
+          // with a hardcoded empty docId/data, so notification taps
+          // that navigate here via Get.toNamed(..., arguments: {...})
+          // (see notifications_screen.dart) opened a blank screen.
+          page: () {
+            final args = Get.arguments;
+            final Map<String, dynamic> argMap =
+            args is Map<String, dynamic> ? args : <String, dynamic>{};
+            return DonationDetailScreen(
+              docId: (argMap['docId'] ?? '').toString(),
+              data: (argMap['data'] is Map<String, dynamic>)
+                  ? argMap['data'] as Map<String, dynamic>
+                  : <String, dynamic>{},
+            );
+          },
+        ),
         GetPage(name: '/manager_dashboard', page: () => const ManagerDashboard()),
         GetPage(name: '/volunteer_form', page: () => const VolunteerRegistrationFormScreen()),
         GetPage(name: '/verification_status', page: () => const VerificationStatusScreen()),
         GetPage(name: '/volunteer_dashboard', page: () => const VolunteerDashboard()),
+        GetPage(name: '/admin_dashboard_web', page: () => const AdminWebDashboard()),
+        GetPage(name: '/manager_dashboard_web', page: () => const ManagerWebDashboard()),
+        GetPage(name: '/login', page: () => kIsWeb ? const LoginScreenWeb() : const LoginScreen()),
       ],
     ));
   }

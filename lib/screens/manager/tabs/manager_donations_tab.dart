@@ -238,8 +238,13 @@ class ManagerDonationsTab extends StatelessWidget {
                       (data['status'] ?? 'pending')
                           .toString();
 
-                      final statusMatches =
-                          status == selectedStatus;
+                      // FIXED (Bug 3) — donations that moved past 'approved' (pickup_assigned,
+                      // completed, in_transit...) matched no tab and vanished from the
+                      // list. The 'Approved' tab now also holds every donation that is
+                      // neither pending nor rejected.
+                      final statusMatches = selectedStatus == 'approved'
+                          ? (status != 'pending' && status != 'rejected')
+                          : status == selectedStatus;
 
                       return typeMatches &&
                           statusMatches;

@@ -42,8 +42,8 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       'color': const Color(0xFFE8F5E9),
     },
     {
-      'name': 'Books',
-      'icon': Icons.menu_book_rounded,
+      'name': 'Stationery', // CHANGED — was 'Books'
+      'icon': Icons.edit_note_rounded,
       'imageAsset': 'assets/images/cat_books.png',
       'color': const Color(0xFFE3F2FD),
     },
@@ -54,10 +54,28 @@ class _CategorySelectionScreenState extends State<CategorySelectionScreen> {
       'color': const Color(0xFFFCE4EC),
     },
     {
+      'name': 'Shoes', // NEW
+      'icon': Icons.hiking_rounded,
+      'imageAsset': 'assets/images/cat_others.png',
+      'color': const Color(0xFFFFF8E1),
+    },
+    {
+      'name': 'Medicine', // NEW
+      'icon': Icons.medical_services_rounded,
+      'imageAsset': 'assets/images/cat_others.png',
+      'color': const Color(0xFFFDECEA),
+    },
+    {
       'name': 'Furniture',
       'icon': Icons.chair_rounded,
       'imageAsset': 'assets/images/cat_furniture.png',
       'color': const Color(0xFFF3E5F5),
+    },
+    {
+      'name': 'Blankets', // NEW
+      'icon': Icons.bed_rounded,
+      'imageAsset': 'assets/images/cat_others.png',
+      'color': const Color(0xFFE0F2F1),
     },
     {
       'name': 'Others',

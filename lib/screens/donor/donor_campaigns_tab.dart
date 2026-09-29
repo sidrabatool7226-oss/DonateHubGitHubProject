@@ -12,31 +12,43 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../controllers/donor_campaign_controller.dart';
 import 'widgets/campaign_donation_sheet.dart';
+import 'child_sponsorship_detail_screen.dart'; // NEW — Full/Partial sponsorship flow
 
 class DonorCampaignsTab extends StatefulWidget {
-  const DonorCampaignsTab({super.key});
+  // NEW — null shows everything (unchanged original behavior, still
+  // used wherever this screen was already referenced with no filter).
+  // 'campaign' or 'project' restricts the list to just that category,
+  // for Home's separate Campaigns/Projects buttons.
+  final String? categoryFilter;
+  const DonorCampaignsTab({super.key, this.categoryFilter});
 
   @override
   State<DonorCampaignsTab> createState() => _DonorCampaignsTabState();
 }
 
-class _DonorCampaignsTabState extends State<DonorCampaignsTab>
-    with SingleTickerProviderStateMixin {
-  late TabController _tabController;
-
+class _DonorCampaignsTabState extends State<DonorCampaignsTab> {
   static const Color _green = Color(0xFF1B6B3A);
-  static const Color _blue = Color(0xFF1565C0);
 
-  @override
-  void initState() {
-    super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+  String get _headerTitle {
+    switch (widget.categoryFilter) {
+      case 'campaign':
+        return 'Campaigns';
+      case 'project':
+        return 'Projects';
+      default:
+        return 'Campaigns & Projects';
+    }
   }
 
-  @override
-  void dispose() {
-    _tabController.dispose();
-    super.dispose();
+  String get _headerSubtitle {
+    switch (widget.categoryFilter) {
+      case 'campaign':
+        return 'Support an active fundraising drive';
+      case 'project':
+        return 'Support an ongoing initiative';
+      default:
+        return 'Support causes that matter';
+    }
   }
 
   @override
@@ -56,106 +68,61 @@ class _DonorCampaignsTabState extends State<DonorCampaignsTab>
                   end: Alignment.bottomRight,
                 ),
               ),
-              child: Column(
-                children: [
-                  Padding(
-                    padding:
-                    const EdgeInsets.fromLTRB(20, 16, 20, 0),
-                    child: Row(
-                      children: [
-                        const Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                'Campaigns & Events',
-                                style: TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                'Support causes that matter',
-                                style: TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color:
-                            Colors.white.withOpacity(0.2),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.volunteer_activism_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  TabBar(
-                    controller: _tabController,
-                    indicatorColor: Colors.white,
-                    indicatorWeight: 3,
-                    labelColor: Colors.white,
-                    unselectedLabelColor: Colors.white60,
-                    labelStyle: const TextStyle(
-                      fontWeight: FontWeight.w700,
-                      fontSize: 14,
-                    ),
-                    tabs: const [
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.campaign_rounded,
-                              size: 16,
-                            ),
-                            SizedBox(width: 6),
-                            Text('Campaigns'),
-                          ],
-                        ),
+              child: Padding(
+                padding:
+                const EdgeInsets.fromLTRB(20, 16, 20, 18),
+                child: Row(
+                  children: [
+                    GestureDetector(
+                      onTap: () => Navigator.maybePop(context),
+                      child: const Padding(
+                        padding: EdgeInsets.only(right: 10),
+                        child: Icon(Icons.arrow_back_ios_rounded, color: Colors.white, size: 18),
                       ),
-                      Tab(
-                        child: Row(
-                          mainAxisAlignment:
-                          MainAxisAlignment.center,
-                          children: [
-                            Icon(
-                              Icons.event_rounded,
-                              size: 16,
+                    ),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment:
+                        CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _headerTitle,
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
-                            SizedBox(width: 6),
-                            Text('Events'),
-                          ],
-                        ),
+                          ),
+                          Text(
+                            _headerSubtitle,
+                            style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                            ),
+                          ),
+                        ],
                       ),
-                    ],
-                  ),
-                ],
+                    ),
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color:
+                        Colors.white.withOpacity(0.2),
+                        shape: BoxShape.circle,
+                      ),
+                      child: const Icon(
+                        Icons.volunteer_activism_rounded,
+                        color: Colors.white,
+                        size: 20,
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ),
             Expanded(
-              child: TabBarView(
-                controller: _tabController,
-                children: [
-                  _CampaignsList(controller: controller),
-                  _EventsList(controller: controller),
-                ],
-              ),
+              child: _CampaignsList(controller: controller, categoryFilter: widget.categoryFilter),
             ),
           ],
         ),
@@ -169,79 +136,165 @@ class _DonorCampaignsTabState extends State<DonorCampaignsTab>
 // ==========================================================================
 class _CampaignsList extends StatelessWidget {
   final DonorCampaignController controller;
+  final String? categoryFilter; // NEW
 
   const _CampaignsList({
     required this.controller,
+    this.categoryFilter,
   });
 
   static const Color _green = Color(0xFF1B6B3A);
 
   @override
   Widget build(BuildContext context) {
-    return StreamBuilder<QuerySnapshot>(
-      stream: controller.campaignsStream,
-      builder: (context, snapshot) {
-        if (snapshot.connectionState ==
-            ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(
-              color: _green,
-            ),
-          );
-        }
-
-        if (snapshot.hasError) {
-          return const Center(
-            child: Text(
-              'Could not load active campaigns.',
-              style: TextStyle(
-                color: Colors.grey,
+    return Column(
+      children: [
+        // NEW — general "Donate Now" entry point, above everything else,
+        // so a donor doesn't have to pick a specific campaign/project
+        // first (opens the existing Donate Funds flow unchanged).
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 16, 16, 4),
+          child: GestureDetector(
+            onTap: () => Get.toNamed('/donate_funds'),
+            child: Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                  horizontal: 18, vertical: 16),
+              decoration: BoxDecoration(
+                gradient: const LinearGradient(
+                  colors: [Color(0xFF00BFA5), _green],
+                  begin: Alignment.centerLeft,
+                  end: Alignment.centerRight,
+                ),
+                borderRadius: BorderRadius.circular(18),
+                boxShadow: [
+                  BoxShadow(
+                    color: _green.withOpacity(0.25),
+                    blurRadius: 12,
+                    offset: const Offset(0, 5),
+                  ),
+                ],
+              ),
+              child: Row(
+                children: [
+                  Container(
+                    width: 44,
+                    height: 44,
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                    child: const Icon(Icons.favorite_rounded,
+                        color: Colors.white, size: 22),
+                  ),
+                  const SizedBox(width: 14),
+                  const Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          'Donate Now',
+                          style: TextStyle(
+                            color: Colors.white,
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                          ),
+                        ),
+                        SizedBox(height: 2),
+                        Text(
+                          'Give to any cause or our General Fund',
+                          style: TextStyle(
+                              color: Colors.white70, fontSize: 11.5),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const Icon(Icons.arrow_forward_ios_rounded,
+                      color: Colors.white, size: 16),
+                ],
               ),
             ),
-          );
-        }
+          ),
+        ),
+        Expanded(
+          child: StreamBuilder<QuerySnapshot>(
+            stream: controller.campaignsStream,
+            builder: (context, snapshot) {
+              if (snapshot.connectionState ==
+                  ConnectionState.waiting) {
+                return const Center(
+                  child: CircularProgressIndicator(
+                    color: _green,
+                  ),
+                );
+              }
 
-        final docs =
-        List<QueryDocumentSnapshot>.from(
-          snapshot.data?.docs ?? [],
-        )..sort((a, b) {
-          final aTs =
-          (a.data() as Map)['createdAt'] as Timestamp?;
-          final bTs =
-          (b.data() as Map)['createdAt'] as Timestamp?;
+              if (snapshot.hasError) {
+                return const Center(
+                  child: Text(
+                    'Could not load active campaigns.',
+                    style: TextStyle(
+                      color: Colors.grey,
+                    ),
+                  ),
+                );
+              }
 
-          if (aTs == null || bTs == null) {
-            return 0;
-          }
+              final docs =
+              List<QueryDocumentSnapshot>.from(
+                snapshot.data?.docs ?? [],
+              )
+                ..retainWhere((doc) {
+                  if (categoryFilter == null) return true;
+                  final data = doc.data() as Map<String, dynamic>;
+                  final String cat = (data['category'] ?? 'campaign').toString();
+                  return cat == categoryFilter;
+                })
+                ..sort((a, b) {
+                  final aTs =
+                  (a.data() as Map)['createdAt'] as Timestamp?;
+                  final bTs =
+                  (b.data() as Map)['createdAt'] as Timestamp?;
 
-          return bTs.compareTo(aTs);
-        });
+                  if (aTs == null || bTs == null) {
+                    return 0;
+                  }
 
-        if (docs.isEmpty) {
-          return _EmptyState(
-            icon: Icons.campaign_outlined,
-            message: 'No active campaigns',
-            subtitle:
-            'Check back soon for new campaigns',
-          );
-        }
+                  return bTs.compareTo(aTs);
+                });
 
-        return ListView.builder(
-          padding:
-          const EdgeInsets.fromLTRB(16, 16, 16, 16),
-          itemCount: docs.length,
-          itemBuilder: (context, index) {
-            final doc = docs[index];
+              if (docs.isEmpty) {
+                return _EmptyState(
+                  icon: categoryFilter == 'project' ? Icons.rocket_launch_outlined : Icons.campaign_outlined,
+                  message: categoryFilter == 'project'
+                      ? 'No active projects'
+                      : categoryFilter == 'campaign'
+                      ? 'No active campaigns'
+                      : 'No active campaigns',
+                  subtitle:
+                  'Check back soon for new campaigns',
+                );
+              }
 
-            return _CampaignCard(
-              docId: doc.id,
-              data:
-              doc.data() as Map<String, dynamic>,
-              controller: controller,
-            );
-          },
-        );
-      },
+              return ListView.builder(
+                padding:
+                const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                itemCount: docs.length,
+                itemBuilder: (context, index) {
+                  final doc = docs[index];
+
+                  return _CampaignCard(
+                    docId: doc.id,
+                    data:
+                    doc.data() as Map<String, dynamic>,
+                    controller: controller,
+                  );
+                },
+              );
+            },
+          ),
+        ),
+      ],
     );
   }
 }
@@ -295,6 +348,21 @@ class _CampaignCard extends StatelessWidget {
     goal > collected
         ? (goal - collected).toInt()
         : 0;
+
+    // NEW — 'campaign' | 'project' | 'sponsorship'; older docs without
+    // this field behave exactly as before (plain campaign).
+    final String category =
+    (data['category'] ?? 'campaign').toString();
+
+    if (category == 'sponsorship') {
+      return _buildSponsorshipCard(context, docId, title, imageUrl, data);
+    }
+
+    final String buttonLabel = category == 'project'
+        ? 'Support this Project'
+        : 'Donate to this Campaign';
+    final String categoryBadge =
+    category == 'project' ? 'Project' : 'Campaign';
 
     return Container(
       margin:
@@ -354,6 +422,27 @@ class _CampaignCard extends StatelessWidget {
                           Colors.black.withOpacity(0.5),
                         ],
                       ),
+                    ),
+                  ),
+                ),
+              ),
+              // Category badge — NEW
+              Positioned(
+                top: 12,
+                left: 14,
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 10, vertical: 5),
+                  decoration: BoxDecoration(
+                    color: Colors.black.withOpacity(0.5),
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    categoryBadge,
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
@@ -636,9 +725,9 @@ class _CampaignCard extends StatelessWidget {
                       Icons.volunteer_activism_rounded,
                       size: 18,
                     ),
-                    label: const Text(
-                      'Donate to this Campaign',
-                      style: TextStyle(
+                    label: Text(
+                      buttonLabel,
+                      style: const TextStyle(
                         fontSize: 14,
                         fontWeight:
                         FontWeight.w700,
@@ -660,6 +749,94 @@ class _CampaignCard extends StatelessWidget {
                         BorderRadius.circular(
                           14,
                         ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  // NEW — "Sponsor a Child" entries render as a simple photo + name card
+  // instead of the full campaign layout (no progress bar/goal clutter).
+  Widget _buildSponsorshipCard(
+      BuildContext context, String docId, String name, String imageUrl, Map<String, dynamic> data) {
+    return Container(
+      margin: const EdgeInsets.only(bottom: 20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withOpacity(0.08),
+            blurRadius: 15,
+            offset: const Offset(0, 5),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius:
+            const BorderRadius.vertical(top: Radius.circular(20)),
+            child: imageUrl.isNotEmpty
+                ? Image.network(
+              imageUrl,
+              height: 220,
+              width: double.infinity,
+              fit: BoxFit.cover,
+              errorBuilder: (_, __, ___) => _placeholder(),
+            )
+                : _placeholder(),
+          ),
+          Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    const Icon(Icons.favorite_rounded,
+                        size: 16, color: _green),
+                    const SizedBox(width: 6),
+                    Text(
+                      name,
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 14),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => Navigator.push(
+                      context,
+                      MaterialPageRoute(
+                        builder: (_) => ChildSponsorshipDetailScreen(childId: docId, childData: data),
+                      ),
+                    ), // CHANGED — was _showDonateSheet(context, docId, name)
+                    icon: const Icon(Icons.favorite_rounded, size: 18),
+                    label: Text(
+                      'Sponsor $name',
+                      style: const TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: _green,
+                      foregroundColor: Colors.white,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
                       ),
                     ),
                   ),

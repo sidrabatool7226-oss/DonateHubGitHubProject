@@ -74,7 +74,22 @@ class ManagerCampaignsController extends GetxController {
             storedCampaignName.isNotEmpty &&
             storedCampaignName == campaignName;
 
-        if (matchesId || matchesName) {
+        // NEW — Sponsorship payments (Phase 2/3) never set campaignId/
+        // campaignName — they use donationTargetType/donationTargetId
+        // instead (see SponsorshipController.submitSponsorship()).
+        // Without this, a child's donor list here always showed empty
+        // even though the child's own collectedAmount was correct.
+        final String donationTargetType =
+        (data['donationTargetType'] ?? '').toString();
+
+        final String donationTargetId =
+        (data['donationTargetId'] ?? '').toString().trim();
+
+        final matchesSponsorship = donationTargetType == 'sponsorship' &&
+            campaignId.isNotEmpty &&
+            donationTargetId == campaignId;
+
+        if (matchesId || matchesName || matchesSponsorship) {
           data['id'] = doc.id;
           result.add(data);
         }

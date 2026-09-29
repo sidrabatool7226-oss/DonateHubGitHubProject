@@ -17,12 +17,12 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
 
   static const Color _teal = Color(0xFF0F6E4F);
 
-  final List<Widget> _tabs = const [
-    ManagerHomeTab(),
-    ManagerVolunteersTab(),
-    ManagerDonationsTab(),
-    ManagerTasksTab(),
-    ManagerProfileTab(),
+  late final List<Widget> _tabs = [
+    ManagerHomeTab(onGoToProfile: () => setState(() => _currentIndex = 4)),
+    const ManagerVolunteersTab(),
+    const ManagerDonationsTab(),
+    const ManagerTasksTab(),
+    const ManagerProfileTab(),
   ];
 
   @override

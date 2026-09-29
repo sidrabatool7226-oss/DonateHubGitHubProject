@@ -19,68 +19,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../services/auth_service.dart';
+import '../../models/country_option.dart'; // NEW — shared, was private to this file
 
-// ── Country data model (local to this file — no new files created) ───────
-class _CountryOption {
-  final String name;
-  final String dialCode;
-  final int minDigits;
-  final int maxDigits;
-  const _CountryOption(this.name, this.dialCode, this.minDigits, this.maxDigits);
-}
-
-const List<_CountryOption> _countries = [
-  _CountryOption('Pakistan', '+92', 10, 10),
-  _CountryOption('Afghanistan', '+93', 9, 9),
-  _CountryOption('Australia', '+61', 9, 9),
-  _CountryOption('Austria', '+43', 10, 11),
-  _CountryOption('Bahrain', '+973', 8, 8),
-  _CountryOption('Bangladesh', '+880', 10, 10),
-  _CountryOption('Belgium', '+32', 9, 9),
-  _CountryOption('Brazil', '+55', 10, 11),
-  _CountryOption('Canada', '+1', 10, 10),
-  _CountryOption('China', '+86', 11, 11),
-  _CountryOption('Egypt', '+20', 10, 10),
-  _CountryOption('France', '+33', 9, 9),
-  _CountryOption('Germany', '+49', 10, 11),
-  _CountryOption('India', '+91', 10, 10),
-  _CountryOption('Indonesia', '+62', 10, 12),
-  _CountryOption('Iran', '+98', 10, 10),
-  _CountryOption('Iraq', '+964', 10, 10),
-  _CountryOption('Ireland', '+353', 9, 9),
-  _CountryOption('Italy', '+39', 9, 10),
-  _CountryOption('Japan', '+81', 10, 10),
-  _CountryOption('Jordan', '+962', 9, 9),
-  _CountryOption('Kenya', '+254', 9, 9),
-  _CountryOption('Kuwait', '+965', 8, 8),
-  _CountryOption('Lebanon', '+961', 8, 8),
-  _CountryOption('Malaysia', '+60', 9, 10),
-  _CountryOption('Morocco', '+212', 9, 9),
-  _CountryOption('Nepal', '+977', 10, 10),
-  _CountryOption('Netherlands', '+31', 9, 9),
-  _CountryOption('New Zealand', '+64', 8, 9),
-  _CountryOption('Nigeria', '+234', 10, 10),
-  _CountryOption('Norway', '+47', 8, 8),
-  _CountryOption('Oman', '+968', 8, 8),
-  _CountryOption('Philippines', '+63', 10, 10),
-  _CountryOption('Poland', '+48', 9, 9),
-  _CountryOption('Qatar', '+974', 8, 8),
-  _CountryOption('Russia', '+7', 10, 10),
-  _CountryOption('Saudi Arabia', '+966', 9, 9),
-  _CountryOption('Singapore', '+65', 8, 8),
-  _CountryOption('South Africa', '+27', 9, 9),
-  _CountryOption('South Korea', '+82', 9, 10),
-  _CountryOption('Spain', '+34', 9, 9),
-  _CountryOption('Sri Lanka', '+94', 9, 9),
-  _CountryOption('Sweden', '+46', 7, 9),
-  _CountryOption('Switzerland', '+41', 9, 9),
-  _CountryOption('Thailand', '+66', 9, 9),
-  _CountryOption('Turkey', '+90', 10, 10),
-  _CountryOption('UAE', '+971', 9, 9),
-  _CountryOption('United Kingdom', '+44', 10, 10),
-  _CountryOption('United States', '+1', 10, 10),
-  _CountryOption('Yemen', '+967', 9, 9),
-];
+// NEW — kept as local aliases so the rest of this file's code
+// (which already says "_CountryOption" / "_countries" everywhere)
+// does not need to be touched line-by-line.
+typedef _CountryOption = CountryOption;
+final List<_CountryOption> _countries = countries;
 
 // ── CNIC formatter — auto adds dashes: XXXXX-XXXXXXX-X ─────────────────────
 class _CnicFormatter extends TextInputFormatter {

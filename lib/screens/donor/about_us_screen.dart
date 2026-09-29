@@ -1,434 +1,213 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class AboutUsScreen extends StatelessWidget {
   const AboutUsScreen({super.key});
 
   static const Color _green = Color(0xFF1B6B3A);
-  static const Color _lightGreen = Color(0xFFEAF6EF);
-  static const Color _background = Color(0xFFF7FAF8);
-  static const Color _text = Color(0xFF1B2A22);
-  static const Color _secondaryText = Color(0xFF5F6D65);
+  static const Color _lightGreen = Color(0xFF2D8A52);
+  static const Color _bg = Color(0xFFF4F6F8);
+
+  Future<void> _openWebsite() async {
+    final uri = Uri.parse('https://littlesmilesorphanhome.org/');
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: _background,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: _green,
-        foregroundColor: Colors.white,
-        centerTitle: true,
-        title: const Text(
-          'About Us',
-          style: TextStyle(
-            fontSize: 18,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ),
-      body: SafeArea(
-        child: SingleChildScrollView(
-          physics: const BouncingScrollPhysics(),
-          padding: const EdgeInsets.fromLTRB(18, 20, 18, 30),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              // ----------------------------------------------------------
-              // HERO SECTION
-              // ----------------------------------------------------------
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(24),
-                decoration: BoxDecoration(
-                  color: _green,
-                  borderRadius: BorderRadius.circular(22),
-                  boxShadow: [
-                    BoxShadow(
-                      color: _green.withOpacity(0.16),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ],
+      backgroundColor: _bg,
+      body: CustomScrollView(
+        physics: const BouncingScrollPhysics(),
+        slivers: [
+          SliverAppBar(
+            expandedHeight: 220,
+            pinned: true,
+            backgroundColor: _green,
+            leading: GestureDetector(
+              onTap: () => Get.back(),
+              child: const Icon(Icons.arrow_back_ios_rounded),
+            ),
+            flexibleSpace: FlexibleSpaceBar(
+              background: Container(
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_green, _lightGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-                child: Column(
-                  children: [
-                    Container(
-                      height: 76,
-                      width: 76,
-                      decoration: BoxDecoration(
-                        color: Colors.white,
-                        borderRadius: BorderRadius.circular(20),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withOpacity(0.08),
-                            blurRadius: 10,
-                            offset: const Offset(0, 4),
+                child: SafeArea(
+                  child: Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 40, 24, 20),
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      children: [
+                        Container(
+                          width: 90,
+                          height: 90,
+                          decoration: BoxDecoration(
+                            color: Colors.white,
+                            shape: BoxShape.circle,
+                            border: Border.all(color: Colors.white.withOpacity(0.5), width: 3),
                           ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.volunteer_activism_rounded,
-                        size: 42,
-                        color: _green,
-                      ),
+                          child: ClipOval(
+                            child: Image.asset(
+                              'assets/images/logo.png',
+                              fit: BoxFit.cover,
+                              errorBuilder: (_, __, ___) => const Icon(
+                                Icons.volunteer_activism_rounded,
+                                color: _green,
+                                size: 44,
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        const Text(
+                          'Little Smiles Orphan Home',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold),
+                        ),
+                        const SizedBox(height: 4),
+                        Text(
+                          'Powered by DonateHub',
+                          style: TextStyle(color: Colors.white.withOpacity(0.85), fontSize: 12.5),
+                        ),
+                      ],
                     ),
-                    const SizedBox(height: 16),
-                    const Text(
-                      'Little Smiles Orphan Home',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white,
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    Text(
-                      'Making a difference, one smile at a time.',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.white.withOpacity(.88),
-                        fontSize: 13.5,
-                        height: 1.4,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-
-              const SizedBox(height: 26),
-
-              // ----------------------------------------------------------
-              // WHO WE ARE
-              // ----------------------------------------------------------
-              const _SectionTitle(
-                title: 'Who We Are',
-                icon: Icons.info_outline_rounded,
-              ),
-
-              const SizedBox(height: 10),
-
-              const Text(
-                'Little Smiles Orphan Home (LSOH) is dedicated to supporting '
-                    'children who need care, compassion and opportunities for a '
-                    'better future. Our goal is to create a safe and supportive '
-                    'environment where every child can grow with dignity, hope '
-                    'and a smile.',
-                style: TextStyle(
-                  fontSize: 14,
-                  height: 1.65,
-                  color: _secondaryText,
-                ),
-              ),
-
-              const SizedBox(height: 26),
-
-              // ----------------------------------------------------------
-              // MISSION
-              // ----------------------------------------------------------
-              const _InfoCard(
-                icon: Icons.favorite_rounded,
-                title: 'Our Mission',
-                description:
-                'To support children in need by providing care, '
-                    'resources and opportunities through the help of '
-                    'compassionate donors and volunteers.',
-              ),
-
-              const SizedBox(height: 12),
-
-              // ----------------------------------------------------------
-              // COMMUNITY
-              // ----------------------------------------------------------
-              const _InfoCard(
-                icon: Icons.volunteer_activism_rounded,
-                title: 'Our Community',
-                description:
-                'LSOH brings donors, volunteers and the organization '
-                    'together so that support can reach the children who '
-                    'need it most.',
-              ),
-
-              const SizedBox(height: 12),
-
-              // ----------------------------------------------------------
-              // APPROACH
-              // ----------------------------------------------------------
-              const _InfoCard(
-                icon: Icons.handshake_rounded,
-                title: 'Our Approach',
-                description:
-                'We encourage meaningful donations of funds and useful '
-                    'resources while supporting responsible volunteer '
-                    'participation in community activities.',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ----------------------------------------------------------
-              // ABOUT DONATEHUB
-              // ----------------------------------------------------------
-              const _SectionTitle(
-                title: 'About DonateHub',
-                icon: Icons.apps_rounded,
-              ),
-
-              const SizedBox(height: 12),
-
-              Container(
-                width: double.infinity,
-                padding: const EdgeInsets.all(19),
-                decoration: BoxDecoration(
-                  color: _lightGreen,
-                  borderRadius: BorderRadius.circular(18),
-                  border: Border.all(
-                    color: _green.withOpacity(.10),
-                  ),
-                ),
-                child: const Text(
-                  'DonateHub is the digital platform created to make it '
-                      'easier for supporters of Little Smiles Orphan Home to '
-                      'contribute. Donors can support campaigns through fund '
-                      'donations or donate useful resources. Volunteers can '
-                      'also participate in approved activities and help the '
-                      'organization serve the community.',
-                  style: TextStyle(
-                    fontSize: 13.5,
-                    height: 1.65,
-                    color: Color(0xFF405149),
                   ),
                 ),
               ),
-
-              const SizedBox(height: 28),
-
-              // ----------------------------------------------------------
-              // WHAT WE BELIEVE
-              // ----------------------------------------------------------
-              const _SectionTitle(
-                title: 'What We Believe',
-                icon: Icons.lightbulb_outline_rounded,
-              ),
-
-              const SizedBox(height: 14),
-
-              const _BeliefRow(
-                icon: Icons.favorite_border_rounded,
-                text: 'Every child deserves care, dignity and hope.',
-              ),
-
-              const _BeliefRow(
-                icon: Icons.people_outline_rounded,
-                text: 'Community support can create meaningful change.',
-              ),
-
-              const _BeliefRow(
-                icon: Icons.visibility_outlined,
-                text:
-                'Responsible giving helps resources reach those in need.',
-              ),
-
-              const _BeliefRow(
-                icon: Icons.auto_awesome_outlined,
-                text: 'Small acts of kindness can create big smiles.',
-              ),
-
-              const SizedBox(height: 28),
-
-              // ----------------------------------------------------------
-              // FOOTER
-              // ----------------------------------------------------------
-              Center(
-                child: Column(
-                  children: [
-                    Container(
-                      height: 1,
-                      width: 80,
-                      color: _green.withOpacity(.15),
-                    ),
-                    const SizedBox(height: 12),
-                    Text(
-                      'Little Smiles Orphan Home • DonateHub',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: Colors.grey[500],
-                        fontSize: 12,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-// ==========================================================================
-// SECTION TITLE
-// ==========================================================================
-
-class _SectionTitle extends StatelessWidget {
-  final String title;
-  final IconData icon;
-
-  const _SectionTitle({
-    required this.title,
-    required this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: [
-        Container(
-          height: 38,
-          width: 38,
-          decoration: BoxDecoration(
-            color: const Color(0xFFEAF6EF),
-            borderRadius: BorderRadius.circular(11),
-          ),
-          child: Icon(
-            icon,
-            color: const Color(0xFF1B6B3A),
-            size: 21,
-          ),
-        ),
-        const SizedBox(width: 11),
-        Expanded(
-          child: Text(
-            title,
-            style: const TextStyle(
-              fontSize: 19,
-              fontWeight: FontWeight.bold,
-              color: Color(0xFF1B2A22),
             ),
           ),
-        ),
-      ],
+          SliverToBoxAdapter(
+            child: Padding(
+              padding: const EdgeInsets.all(16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _SectionCard(
+                    icon: Icons.favorite_rounded,
+                    iconColor: const Color(0xFFC0392B),
+                    title: 'Our Mission',
+                    body:
+                    'Little Smiles Orphan Home is dedicated to providing shelter, care, education and essential support to orphaned and underprivileged children. Every child deserves a safe home, a proper education, and the chance to grow up with dignity and hope.',
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    icon: Icons.hub_rounded,
+                    iconColor: _green,
+                    title: 'What is DonateHub?',
+                    body:
+                    'DonateHub is the official donation management platform of Little Smiles Orphan Home. It connects generous donors and dedicated volunteers directly with the children and causes that need them most — making giving transparent, simple, and impactful.',
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    icon: Icons.volunteer_activism_rounded,
+                    iconColor: const Color(0xFF2563EB),
+                    title: 'How Donors Help',
+                    body:
+                    'Donors can contribute through fund donations or by donating essential resources such as clothes, food, books and other supplies. Every donation is verified by our team before it reaches the children, ensuring your generosity is used responsibly.',
+                  ),
+                  const SizedBox(height: 14),
+                  _SectionCard(
+                    icon: Icons.groups_rounded,
+                    iconColor: const Color(0xFF7C3AED),
+                    title: 'How Volunteers Help',
+                    body:
+                    'Our volunteers give their time and skills across many roles — resource pickup and delivery, teaching, medical camps, relief distribution, event management, blood donation drives, and more. Their dedication is what turns donations into real, lasting impact.',
+                  ),
+                  const SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    padding: const EdgeInsets.all(18),
+                    decoration: BoxDecoration(
+                      color: const Color(0xFFE8F5E9),
+                      borderRadius: BorderRadius.circular(18),
+                      border: Border.all(color: _green.withOpacity(0.2)),
+                    ),
+                    child: Column(
+                      children: [
+                        const Text(
+                          '"Every act of generosity has the power to create a little more happiness."',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(fontSize: 13.5, fontStyle: FontStyle.italic, color: _green, height: 1.5),
+                        ),
+                        const SizedBox(height: 14),
+                        SizedBox(
+                          width: double.infinity,
+                          child: OutlinedButton.icon(
+                            onPressed: _openWebsite,
+                            icon: const Icon(Icons.language_rounded, size: 18),
+                            label: const Text('Visit Our Website'),
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: _green,
+                              side: const BorderSide(color: _green),
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            ),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
 
-// ==========================================================================
-// INFO CARD
-// ==========================================================================
-
-class _InfoCard extends StatelessWidget {
+class _SectionCard extends StatelessWidget {
   final IconData icon;
+  final Color iconColor;
   final String title;
-  final String description;
+  final String body;
 
-  const _InfoCard({
+  const _SectionCard({
     required this.icon,
+    required this.iconColor,
     required this.title,
-    required this.description,
+    required this.body,
   });
 
   @override
   Widget build(BuildContext context) {
-    const green = Color(0xFF1B6B3A);
-
     return Container(
       width: double.infinity,
-      padding: const EdgeInsets.all(17),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(.04),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, 3))],
       ),
-      child: Row(
+      child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Container(
-            height: 46,
-            width: 46,
-            decoration: BoxDecoration(
-              color: const Color(0xFFEAF6EF),
-              borderRadius: BorderRadius.circular(14),
-            ),
-            child: Icon(
-              icon,
-              color: green,
-              size: 24,
-            ),
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: const TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.bold,
-                    color: Color(0xFF1B2A22),
-                  ),
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  description,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    height: 1.55,
-                    color: Color(0xFF68766E),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-// ==========================================================================
-// BELIEF ROW
-// ==========================================================================
-
-class _BeliefRow extends StatelessWidget {
-  final IconData icon;
-  final String text;
-
-  const _BeliefRow({
-    required this.icon,
-    required this.text,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 13),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          const Icon(
-            Icons.check_circle_rounded,
-            color: Color(0xFF1B6B3A),
-            size: 21,
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Text(
-              text,
-              style: const TextStyle(
-                fontSize: 13.5,
-                height: 1.45,
-                color: Color(0xFF526159),
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                decoration: BoxDecoration(color: iconColor.withOpacity(0.12), borderRadius: BorderRadius.circular(10)),
+                child: Icon(icon, color: iconColor, size: 19),
               ),
-            ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold, color: Color(0xFF1A1A1A))),
+              ),
+            ],
           ),
+          const SizedBox(height: 12),
+          Text(body, style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.6)),
         ],
       ),
     );

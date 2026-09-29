@@ -75,8 +75,14 @@ class AssignVolunteerScreen extends StatelessWidget {
               children: [
                 const Icon(Icons.filter_alt_outlined, size: 14, color: _emerald),
                 const SizedBox(width: 6),
-                Text('Showing verified & online volunteers for "$category"',
-                    style: const TextStyle(fontSize: 11.5, color: _emerald, fontWeight: FontWeight.w600)),
+                Expanded( // FIXED — was overflowing off the right edge for longer category names
+                  child: Text(
+                    'Showing verified & online volunteers for "$category"',
+                    style: const TextStyle(fontSize: 11.5, color: _emerald, fontWeight: FontWeight.w600),
+                    overflow: TextOverflow.ellipsis,
+                    maxLines: 1,
+                  ),
+                ),
               ],
             ),
           ),
@@ -89,6 +95,16 @@ class AssignVolunteerScreen extends StatelessWidget {
                   .where('role', isEqualTo: 'volunteer')
                   .where('verificationStage', isEqualTo: 'Verified')
                   .where('isOnline', isEqualTo: true)
+              // CHANGED — 'status' is no longer a hard Firestore-level
+              // filter here. A volunteer approved BEFORE the Admin
+              // activate/deactivate feature existed has no 'status'
+              // field at all, and Firestore's equality filter excludes
+              // any document where the field is simply missing — not
+              // just ones where it's 'inactive'. That silently hid
+              // every older, perfectly legitimate volunteer from this
+              // list. Deactivated volunteers are now excluded below,
+              // client-side, by explicitly checking for 'inactive'
+              // instead of requiring 'active'.
                   .snapshots(),
               builder: (context, snapshot) {
                 if (snapshot.connectionState == ConnectionState.waiting) {
@@ -98,7 +114,14 @@ class AssignVolunteerScreen extends StatelessWidget {
                   return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red, fontSize: 12)));
                 }
 
-                final allVolunteers = snapshot.data?.docs ?? [];
+                final allVolunteers = (snapshot.data?.docs ?? []).where((v) {
+                  final vData = v.data() as Map<String, dynamic>;
+                  // NEW — excludes only an explicitly deactivated account;
+                  // a volunteer with no 'status' field at all (older
+                  // accounts, approved before this feature existed) is
+                  // treated as active, not silently hidden.
+                  return vData['status'] != 'inactive';
+                }).toList();
                 final matched = allVolunteers.where((v) {
                   final vData = v.data() as Map<String, dynamic>;
                   final categories = (vData['categories'] as List?) ?? [];

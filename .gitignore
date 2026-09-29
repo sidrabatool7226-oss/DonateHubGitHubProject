@@ -43,3 +43,27 @@ app.*.map.json
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# ── NEW — secrets that must never be committed ──────────────────────────
+# Firebase Admin private key used by backend/index.js
+backend/serviceAccountKey.json
+# Android app signing key + its password file
+*.jks
+*.keystore
+key.properties
+android/upload-keystore.jks
+
+# ── NEW — dependencies that should be reinstalled, not committed ───────
+backend/node_modules/
+node_modules/
+
+# ── NEW — JVM crash logs that Android Studio / Gradle can drop at the
+# project root (these were found committed; *.log above should already
+# catch new ones, but hs_err/replay dumps land at repo root, not always
+# where *.log's directory-relative matching expects)
+hs_err_pid*.log
+replay_pid*.log
+
+# ── NEW — accidental shell-output file found in the repo root
+# (looked like `git branch > tatus`), harmless but should not be tracked
+/tatus

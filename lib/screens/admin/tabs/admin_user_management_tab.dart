@@ -2,6 +2,8 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/user_management_controller.dart';
+import '../screens/admin_donors_list_screen.dart' show AdminDonorDetailsScreen; // NEW
+import '../screens/admin_volunteers_list_screen.dart' show VolunteerCompleteDetailsScreen; // NEW
 
 class AdminUserManagementTab extends StatelessWidget {
   const AdminUserManagementTab({super.key});
@@ -306,132 +308,147 @@ class _UserCard extends StatelessWidget {
     final bool isActive = status == 'active';
     final String stage =
         data['verificationStage'] ?? '';
+    final String phone = data['mobileNumber'] ?? ''; // NEW
 
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 8,
-            offset: const Offset(0, 3),
-          ),
-        ],
-      ),
-      child: Row(
-        children: [
-          // Avatar
-          CircleAvatar(
-            radius: 22,
-            backgroundColor: _roleColor(role).withOpacity(0.1),
-            child: Text(
-              name[0].toUpperCase(),
-              style: TextStyle(
-                color: _roleColor(role),
-                fontWeight: FontWeight.bold,
-                fontSize: 16,
+    return GestureDetector(
+      onTap: () => _openDetails(context),
+      child: Container(
+        margin: const EdgeInsets.only(bottom: 10),
+        padding: const EdgeInsets.all(14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(14),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 8,
+              offset: const Offset(0, 3),
+            ),
+          ],
+        ),
+        child: Row(
+          children: [
+            // Avatar
+            CircleAvatar(
+              radius: 22,
+              backgroundColor: _roleColor(role).withOpacity(0.1),
+              child: Text(
+                name[0].toUpperCase(),
+                style: TextStyle(
+                  color: _roleColor(role),
+                  fontWeight: FontWeight.bold,
+                  fontSize: 16,
+                ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
+            const SizedBox(width: 12),
 
-          // Info
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  name,
-                  style: const TextStyle(
-                    fontSize: 14,
-                    fontWeight: FontWeight.w600,
-                    color: Color(0xFF1A1A1A),
-                  ),
-                ),
-                Text(
-                  email,
-                  style: TextStyle(
-                    fontSize: 11,
-                    color: Colors.grey[500],
-                  ),
-                ),
-                if (role == 'volunteer' && stage.isNotEmpty)
+            // Info
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
                   Text(
-                    'Verification: $stage',
+                    name,
+                    style: const TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w600,
+                      color: Color(0xFF1A1A1A),
+                    ),
+                  ),
+                  Text(
+                    email,
                     style: TextStyle(
                       fontSize: 11,
-                      color: stage == 'Verified'
-                          ? _green
-                          : Colors.orange[700],
+                      color: Colors.grey[500],
                     ),
                   ),
-              ],
-            ),
-          ),
-
-          // Status + actions
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 8,
-                  vertical: 3,
-                ),
-                decoration: BoxDecoration(
-                  color: isActive
-                      ? Colors.green[50]
-                      : Colors.red[50],
-                  borderRadius: BorderRadius.circular(20),
-                ),
-                child: Text(
-                  isActive ? 'Active' : 'Inactive',
-                  style: TextStyle(
-                    fontSize: 10,
-                    color: isActive
-                        ? Colors.green[700]
-                        : Colors.red[700],
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ),
-
-              // Only show actions for managers
-              if (role == 'manager') ...[
-                const SizedBox(height: 6),
-                Row(
-                  children: [
-                    // Edit
-                    GestureDetector(
-                      onTap: () => _showEditSheet(
-                          context, data, docId),
-                      child: Container(
-                        padding: const EdgeInsets.all(4),
-                        decoration: BoxDecoration(
-                          color: _green.withOpacity(0.1),
-                          borderRadius:
-                          BorderRadius.circular(6),
-                        ),
-                        child: const Icon(
-                          Icons.edit_outlined,
-                          size: 14,
-                          color: _green,
-                        ),
+                  if (phone.isNotEmpty) // NEW
+                    Text(
+                      phone,
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: Colors.grey[500],
                       ),
                     ),
-                    const SizedBox(width: 6),
-                    // Deactivate/Activate
+                  if (role == 'volunteer' && stage.isNotEmpty)
+                    Text(
+                      'Verification: $stage',
+                      style: TextStyle(
+                        fontSize: 11,
+                        color: stage == 'Verified'
+                            ? _green
+                            : Colors.orange[700],
+                      ),
+                    ),
+                ],
+              ),
+            ),
+
+            // Status + actions
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.end,
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: isActive
+                        ? Colors.green[50]
+                        : Colors.red[50],
+                    borderRadius: BorderRadius.circular(20),
+                  ),
+                  child: Text(
+                    isActive ? 'Active' : 'Inactive',
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: isActive
+                          ? Colors.green[700]
+                          : Colors.red[700],
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+
+                // CHANGED — Edit stays manager-only (donors/volunteers
+                // already edit their own profile from their own app), but
+                // Activate/Deactivate now shows for every role — this was
+                // the actual missing piece for Donor/Volunteer accounts.
+                const SizedBox(height: 6),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    if (role == 'manager') ...[
+                      GestureDetector(
+                        onTap: () => _showEditSheet(
+                            context, data, docId),
+                        child: Container(
+                          padding: const EdgeInsets.all(4),
+                          decoration: BoxDecoration(
+                            color: _green.withOpacity(0.1),
+                            borderRadius:
+                            BorderRadius.circular(6),
+                          ),
+                          child: const Icon(
+                            Icons.edit_outlined,
+                            size: 14,
+                            color: _green,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 6),
+                    ],
+                    // Deactivate/Activate — CHANGED, now for every role
                     GestureDetector(
-                    onTap: () {
-                    if (isActive) {
-                    _confirmDeactivate(context, controller, docId);
-                    } else {
-                    controller.toggleManagerStatus(docId, isActive);
-                    }
-                    },
+                      onTap: () {
+                        if (isActive) {
+                          _confirmDeactivate(context, controller, docId, role);
+                        } else {
+                          controller.toggleUserStatus(docId, role, isActive);
+                        }
+                      },
                       child: Container(
                         padding: const EdgeInsets.all(4),
                         decoration: BoxDecoration(
@@ -455,11 +472,39 @@ class _UserCard extends StatelessWidget {
                   ],
                 ),
               ],
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  // NEW — routes to the SAME detail screens Admin's dedicated Donors/
+  // Volunteers tabs already use, instead of building a second copy here.
+  void _openDetails(BuildContext context) {
+    final String role = data['role'] ?? '';
+
+    if (role == 'donor') {
+      FirebaseFirestore.instance.collection('donors').doc(docId).get().then((donorSnap) {
+        final donorData = donorSnap.data();
+        Get.to(
+              () => AdminDonorDetailsScreen(
+            docId: docId,
+            donorData: data,
+            rewardPoints: donorData?['rewardPoints'] ?? 0,
+            totalDonations: donorData?['totalDonations'] ?? 0,
+          ),
+          transition: Transition.rightToLeft,
+        );
+      });
+    } else if (role == 'volunteer') {
+      Get.to(
+            () => VolunteerCompleteDetailsScreen(docId: docId, data: data),
+        transition: Transition.rightToLeft,
+      );
+    }
+    // Manager has no separate detail screen — the existing Edit icon
+    // below already covers updating a manager's own details.
   }
 
   Color _roleColor(String role) {
@@ -478,7 +523,7 @@ class _UserCard extends StatelessWidget {
     controller.editNameController.text =
         data['name'] ?? '';
     controller.editPhoneController.text =
-        data['phone'] ?? '';
+        data['mobileNumber'] ?? ''; // FIXED — was 'phone'
 
     showModalBottomSheet(
       context: context,
@@ -496,13 +541,15 @@ class _UserCard extends StatelessWidget {
   }
 }
 void _confirmDeactivate(BuildContext context,
-    UserManagementController controller, String docId) {
+    UserManagementController controller, String docId, String role) {
+  final String roleLabel =
+  role.isNotEmpty ? '${role[0].toUpperCase()}${role.substring(1)}' : 'User';
   showDialog(
     context: context,
     builder: (_) => AlertDialog(
       shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(16)),
-      title: const Text('Deactivate Manager'),
+      title: Text('Deactivate $roleLabel'),
       content: const Text(
           'Are you sure you want to deactivate this account?'),
       actions: [
@@ -513,7 +560,7 @@ void _confirmDeactivate(BuildContext context,
         TextButton(
           onPressed: () {
             Navigator.pop(context);
-            controller.toggleManagerStatus(docId, true);
+            controller.toggleUserStatus(docId, role, true);
           },
           child: Text('Yes',
               style: TextStyle(color: Colors.red[700])),

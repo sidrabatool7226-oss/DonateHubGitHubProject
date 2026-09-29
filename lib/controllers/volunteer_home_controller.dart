@@ -18,6 +18,9 @@ class VolunteerHomeController extends GetxController {
 
   // Weekly availability — day -> {isAvailable, startTime, endTime}
   var weeklySchedule = <String, Map<String, dynamic>>{}.obs;
+  // Specific date-range overrides — additive to the weekly pattern
+  var specialDates = <Map<String, dynamic>>[].obs;
+  // {startDate: Timestamp, endDate: Timestamp, isAvailable: bool, note: String}
 
   final List<String> daysOfWeek = const [
     'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'
@@ -63,6 +66,10 @@ class VolunteerHomeController extends GetxController {
             }
           }
           weeklySchedule.refresh();
+        }
+        final savedSpecial = data['specialAvailability'] as List?;
+        if (savedSpecial != null) {
+          specialDates.value = savedSpecial.map((e) => Map<String, dynamic>.from(e)).toList();
         }
       }
       isLoading.value = false;
@@ -132,7 +139,26 @@ class VolunteerHomeController extends GetxController {
     };
     weeklySchedule.refresh();
   }
+  // ── Add a specific date range ────────────────────────────────────────
+  void addSpecialDate(
+      DateTime start,
+      DateTime end,
+      bool isAvailable,
+      String note,
+      ) {
+    specialDates.add({
+      'startDate': Timestamp.fromDate(start),
+      'endDate': Timestamp.fromDate(end),
+      'isAvailable': isAvailable,
+      'note': note,
+    });
+  }
 
+  void removeSpecialDate(int index) {
+    if (index < specialDates.length) {
+      specialDates.removeAt(index);
+    }
+  }
   // ── Update Time for a Day ─────────────────────────────────────────────
   void updateDayTime(String day, String startTime, String endTime) {
     final current = weeklySchedule[day]!;
@@ -160,6 +186,7 @@ class VolunteerHomeController extends GetxController {
 
       await _db.collection('users').doc(uid).update({
         'availabilitySchedule': scheduleList,
+        'specialAvailability': specialDates.toList(), // NEW
         'scheduleUpdatedAt': FieldValue.serverTimestamp(),
       });
 

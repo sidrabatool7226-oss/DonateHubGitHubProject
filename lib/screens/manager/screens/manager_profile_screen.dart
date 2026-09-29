@@ -1,10 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/manager_profile_controller.dart';
-import '../../../widgets/appearance_selector_sheet.dart'; // NEW
 import '../../admin/screens/shared/notifications_screen.dart';
 import 'rewards_overview_screen.dart';
-import '../../shared/notifications_screen.dart'; // NEW
 import '../../shared/donors_list_screen.dart';
 class ManagerProfileScreen extends StatelessWidget {
   const ManagerProfileScreen({super.key});
@@ -132,13 +130,7 @@ class ManagerProfileScreen extends StatelessWidget {
 
                       _SectionTitle(title: 'Preferences'),
                       const SizedBox(height: 10),
-                      // NEW — Appearance
-                      _ActionCard(
-                        icon: Icons.dark_mode_outlined, label: 'Appearance',
-                        subtitle: 'Light, Dark or System Default',
-                        color: const Color(0xFF6A1B9A),
-                        onTap: () => AppearanceSelectorSheet.show(context, accentColor: _emerald),
-                      ),
+
                       _ActionCard(
                         icon: Icons.notifications_outlined, label: 'Notifications',
                         subtitle: 'View your recent activity alerts',

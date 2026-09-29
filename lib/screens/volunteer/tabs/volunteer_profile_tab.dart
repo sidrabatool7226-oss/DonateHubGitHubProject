@@ -4,14 +4,14 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import '../../../widgets/appearance_selector_sheet.dart';
 import '../../admin/screens/shared/notifications_screen.dart';
-import '../../shared/notifications_screen.dart';
 import '../screens/about_us_screen.dart';
 import '../screens/help_support_screen.dart';
+import '../../../services/phone_validator.dart'; // NEW
 
 class VolunteerProfileTab extends StatefulWidget {
-  const VolunteerProfileTab({super.key});
+  final VoidCallback? onGoHome; // NEW
+  const VolunteerProfileTab({super.key, this.onGoHome});
 
   @override
   State<VolunteerProfileTab> createState() =>
@@ -28,6 +28,7 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
 
   bool _isEditing = false;
   bool _isSaving = false;
+  String? _phoneError; // NEW
 
   @override
   void dispose() {
@@ -54,7 +55,7 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
             snapshot.data?.data() as Map<String, dynamic>?;
 
             final name = data?['name'] ?? 'Volunteer';
-            final phone = data?['phone'] ?? '';
+            final phone = data?['mobileNumber'] ?? ''; // FIXED — was 'phone', a field signup never writes
             final cnic = data?['cnic'] ?? '';
             final stage = data?['verificationStage'] ?? 'Pending';
             final categories =
@@ -90,6 +91,28 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
                     ),
                     child: Column(
                       children: [
+                        // NEW — back to Home
+                        Row(
+                          children: [
+                            GestureDetector(
+                              onTap: () => widget.onGoHome?.call(),
+                              child: Container(
+                                width: 34,
+                                height: 34,
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.18),
+                                  shape: BoxShape.circle,
+                                ),
+                                child: const Icon(
+                                  Icons.arrow_back_ios_new_rounded,
+                                  color: Colors.white,
+                                  size: 16,
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
                         Container(
                           width: 80,
                           height: 80,
@@ -289,6 +312,16 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
                                 keyboardType:
                                 TextInputType.phone,
                               ),
+                              if (_phoneError != null) ...[
+                                const SizedBox(height: 4),
+                                Padding(
+                                  padding: const EdgeInsets.only(left: 4),
+                                  child: Text(
+                                    _phoneError!,
+                                    style: TextStyle(fontSize: 11, color: Colors.red[600]),
+                                  ),
+                                ),
+                              ],
                               if (cnic.toString().isNotEmpty) ...[
                                 const SizedBox(height: 10),
                                 _ProfileField(
@@ -382,6 +415,87 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
 
                         const SizedBox(height: 14),
 
+                        // ── Privacy — Leaderboard visibility (NEW) ────
+                        StreamBuilder<DocumentSnapshot>(
+                          stream: FirebaseFirestore.instance
+                              .collection('users')
+                              .doc(FirebaseAuth.instance.currentUser?.uid)
+                              .snapshots(),
+                          builder: (context, snap) {
+                            final bool showOnLeaderboard =
+                                (snap.data?.data() as Map<String, dynamic>?)?['showOnLeaderboard'] == true;
+
+                            return Container(
+                              padding: const EdgeInsets.all(16),
+                              decoration: BoxDecoration(
+                                color: Colors.white,
+                                borderRadius: BorderRadius.circular(16),
+                                boxShadow: [
+                                  BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3)),
+                                ],
+                              ),
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: const Color(0xFFE8F5E9),
+                                      borderRadius: BorderRadius.circular(11),
+                                    ),
+                                    child: const Icon(Icons.emoji_events_outlined, color: Color(0xFF1B6B3A), size: 20),
+                                  ),
+                                  const SizedBox(width: 12),
+                                  Expanded(
+                                    child: Column(
+                                      crossAxisAlignment: CrossAxisAlignment.start,
+                                      children: [
+                                        const Text(
+                                          'Appear on Leaderboard',
+                                          style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.w600),
+                                        ),
+                                        const SizedBox(height: 3),
+                                        Text(
+                                          'Other volunteers will see your name and rank if this is on. '
+                                              'The organisation can always see your task history for record-keeping.',
+                                          style: TextStyle(fontSize: 11, color: Colors.grey[500], height: 1.35),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Switch(
+                                    value: showOnLeaderboard,
+                                    activeColor: const Color(0xFF1B6B3A),
+                                    onChanged: (value) {
+                                      FirebaseFirestore.instance
+                                          .collection('users')
+                                          .doc(FirebaseAuth.instance.currentUser?.uid)
+                                          .set({'showOnLeaderboard': value}, SetOptions(merge: true))
+                                          .catchError((e) {
+                                        // NEW — surfaces a write failure
+                                        // instead of the toggle silently
+                                        // snapping back with no explanation.
+                                        Get.snackbar(
+                                          'Could not update',
+                                          'Please try again. ($e)',
+                                          backgroundColor: Colors.red[50],
+                                          colorText: Colors.red[700],
+                                          snackPosition: SnackPosition.BOTTOM,
+                                          margin: const EdgeInsets.all(16),
+                                        );
+                                      });
+                                    },
+                                  ),
+                                ],
+                              ),
+                            );
+                          },
+                        ),
+
+                        const SizedBox(height: 14),
+
                         _MenuCard(
                           items: [
                             _MenuItem(
@@ -405,18 +519,6 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
                               const Color(0xFF6A1B9A),
                               onTap: () =>
                                   _showChangePassword(context),
-                            ),
-
-                            _MenuItem(
-                              icon: Icons.dark_mode_outlined,
-                              label: 'Appearance',
-                              color:
-                              const Color(0xFF6A1B9A),
-                              onTap: () =>
-                                  AppearanceSelectorSheet.show(
-                                    context,
-                                    accentColor: _green,
-                                  ),
                             ),
 
                             _MenuItem(
@@ -532,6 +634,24 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
   Future<void> _saveProfile(String uid) async {
     if (_isSaving) return;
 
+    // NEW — this screen previously saved whatever was typed with no
+    // validation at all. Now uses the same shared, country-aware check
+    // as the Donor profile.
+    final phoneError = validateMobileNumber(_phoneController.text);
+    if (phoneError != null) {
+      setState(() => _phoneError = phoneError);
+      Get.snackbar(
+        'Invalid Phone Number',
+        phoneError,
+        backgroundColor: Colors.red[50],
+        colorText: Colors.red[700],
+        snackPosition: SnackPosition.BOTTOM,
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+    setState(() => _phoneError = null);
+
     setState(() => _isSaving = true);
 
     try {
@@ -540,7 +660,7 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
           .doc(uid)
           .update({
         'name': _nameController.text.trim(),
-        'phone': _phoneController.text.trim(),
+        'mobileNumber': _phoneController.text.trim(), // FIXED — was 'phone'
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

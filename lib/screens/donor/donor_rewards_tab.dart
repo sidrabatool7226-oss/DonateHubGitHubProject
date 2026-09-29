@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
+import 'donor_leaderboard_screen.dart'; // NEW
 
 class DonorRewardsTab extends StatelessWidget {
   const DonorRewardsTab({super.key});
@@ -117,6 +118,41 @@ class DonorRewardsTab extends StatelessWidget {
                           ),
                         ),
                       ],
+                    ),
+                  ),
+
+                  // ── View Leaderboard (NEW) ──────────
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+                    child: GestureDetector(
+                      onTap: () => Navigator.push(
+                        context,
+                        MaterialPageRoute(builder: (_) => const DonorLeaderboardScreen()),
+                      ),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(16),
+                          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 3))],
+                        ),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(11)),
+                              child: const Icon(Icons.leaderboard_rounded, color: _green, size: 19),
+                            ),
+                            const SizedBox(width: 12),
+                            const Expanded(
+                              child: Text('View Leaderboard', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                            ),
+                            Icon(Icons.arrow_forward_ios_rounded, size: 13, color: Colors.grey[400]),
+                          ],
+                        ),
+                      ),
                     ),
                   ),
 

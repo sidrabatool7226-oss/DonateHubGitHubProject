@@ -98,6 +98,9 @@ class _EventCard extends StatelessWidget {
     final String startDate = data['startDateStr'] ?? '';
     final String endDate = data['endDateStr'] ?? '';
     final String imageUrl = data['image'] ?? '';
+    final int volunteersNeeded = (data['volunteersNeeded'] ?? 0) is int
+        ? data['volunteersNeeded'] ?? 0
+        : int.tryParse(data['volunteersNeeded'].toString()) ?? 0; // NEW
 
     return Container(
       margin: const EdgeInsets.only(bottom: 16),
@@ -141,34 +144,77 @@ class _EventCard extends StatelessWidget {
                   stream: controller.participantCountStream(eventId),
                   builder: (context, countSnap) {
                     final count = countSnap.data ?? 0;
+                    final bool hasTarget = volunteersNeeded > 0;
+                    final bool isFull = hasTarget && count >= volunteersNeeded;
                     return StreamBuilder<bool>(
                       stream: controller.isJoinedStream(eventId),
                       builder: (context, joinedSnap) {
                         final isJoined = joinedSnap.data ?? false;
-                        return Row(
+                        // NEW — a volunteer who hasn't joined yet can't
+                        // join a full event; one who already joined can
+                        // still leave even if the event later fills up.
+                        final bool joinDisabled = isFull && !isJoined;
+
+                        return Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Icon(Icons.people_outline_rounded, size: 14, color: Colors.grey[400]),
-                            const SizedBox(width: 4),
-                            Text('$count joined', style: TextStyle(fontSize: 11.5, color: Colors.grey[500])),
-                            const Spacer(),
-                            Obx(() => ElevatedButton.icon(
-                              onPressed: controller.isSaving.value ? null : () {
-                                if (isJoined) {
-                                  controller.leaveEvent(eventId);
-                                } else {
-                                  controller.joinEvent(eventId, title);
-                                }
-                              },
-                              icon: Icon(isJoined ? Icons.check_rounded : Icons.add_rounded, size: 16),
-                              label: Text(isJoined ? 'Joined' : 'Join Event', style: const TextStyle(fontSize: 12.5)),
-                              style: ElevatedButton.styleFrom(
-                                backgroundColor: isJoined ? Colors.grey[200] : _green,
-                                foregroundColor: isJoined ? Colors.grey[700] : Colors.white,
-                                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                                elevation: 0,
-                                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                            Row(
+                              children: [
+                                Icon(Icons.people_outline_rounded, size: 14, color: Colors.grey[400]),
+                                const SizedBox(width: 4),
+                                Text(
+                                  hasTarget ? '$count of $volunteersNeeded joined' : '$count joined',
+                                  style: TextStyle(fontSize: 11.5, color: Colors.grey[500]),
+                                ),
+                                const Spacer(),
+                                Obx(() => ElevatedButton.icon(
+                                  onPressed: controller.isSaving.value || joinDisabled
+                                      ? (isJoined ? () => controller.leaveEvent(eventId) : null)
+                                      : () {
+                                    if (isJoined) {
+                                      controller.leaveEvent(eventId);
+                                    } else {
+                                      controller.joinEvent(eventId, title);
+                                    }
+                                  },
+                                  icon: Icon(
+                                    isJoined
+                                        ? Icons.check_rounded
+                                        : joinDisabled
+                                        ? Icons.block_rounded
+                                        : Icons.add_rounded,
+                                    size: 16,
+                                  ),
+                                  label: Text(
+                                    isJoined ? 'Joined' : (joinDisabled ? 'Event Full' : 'Join Event'),
+                                    style: const TextStyle(fontSize: 12.5),
+                                  ),
+                                  style: ElevatedButton.styleFrom(
+                                    backgroundColor: isJoined
+                                        ? Colors.grey[200]
+                                        : joinDisabled
+                                        ? Colors.grey[300]
+                                        : _green,
+                                    foregroundColor: isJoined || joinDisabled ? Colors.grey[700] : Colors.white,
+                                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                                    elevation: 0,
+                                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                                  ),
+                                )),
+                              ],
+                            ),
+                            if (hasTarget) ...[
+                              const SizedBox(height: 8),
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(6),
+                                child: LinearProgressIndicator(
+                                  value: (count / volunteersNeeded).clamp(0.0, 1.0),
+                                  minHeight: 5,
+                                  backgroundColor: const Color(0xFFF4F6F8),
+                                  valueColor: AlwaysStoppedAnimation<Color>(isFull ? _green : Colors.orange),
+                                ),
                               ),
-                            )),
+                            ],
                           ],
                         );
                       },

@@ -1,6 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import '../../../widgets/admin_account_status_card.dart'; // NEW — activate/deactivate
 
 class AdminDonorsListScreen extends StatelessWidget {
   const AdminDonorsListScreen({super.key});
@@ -82,7 +83,8 @@ class AdminDonorsListScreen extends StatelessWidget {
 
                   return GestureDetector(
                     onTap: () => Get.to(
-                          () => _AdminDonorDetailsScreen(
+                          () => AdminDonorDetailsScreen(
+                        docId: uid, // NEW
                         donorData: data,
                         rewardPoints: points,
                         totalDonations: totalDonations,
@@ -108,21 +110,42 @@ class AdminDonorsListScreen extends StatelessWidget {
                       ),
                       child: Row(
                         children: [
-                          CircleAvatar(
-                            radius: 24,
-                            backgroundColor:
-                            const Color(0xFFE8F5E9),
-                            child: Text(
-                              name.isNotEmpty
-                                  ? name[0].toUpperCase()
-                                  : 'D',
-                              style: const TextStyle(
-                                color: _green,
-                                fontWeight:
-                                FontWeight.bold,
-                                fontSize: 16,
+                          Stack(
+                            children: [
+                              CircleAvatar(
+                                radius: 24,
+                                backgroundColor:
+                                const Color(0xFFE8F5E9),
+                                child: Text(
+                                  name.isNotEmpty
+                                      ? name[0].toUpperCase()
+                                      : 'D',
+                                  style: const TextStyle(
+                                    color: _green,
+                                    fontWeight:
+                                    FontWeight.bold,
+                                    fontSize: 16,
+                                  ),
+                                ),
                               ),
-                            ),
+                              // NEW — quick active/inactive glance,
+                              // sourced from the same live stream above.
+                              Positioned(
+                                right: 0,
+                                bottom: 0,
+                                child: Container(
+                                  width: 12,
+                                  height: 12,
+                                  decoration: BoxDecoration(
+                                    color: (data['status'] ?? 'active') == 'inactive'
+                                        ? Colors.red
+                                        : const Color(0xFF2FBF87),
+                                    shape: BoxShape.circle,
+                                    border: Border.all(color: Colors.white, width: 2),
+                                  ),
+                                ),
+                              ),
+                            ],
                           ),
                           const SizedBox(width: 12),
                           Expanded(
@@ -193,12 +216,14 @@ class AdminDonorsListScreen extends StatelessWidget {
   }
 }
 
-class _AdminDonorDetailsScreen extends StatelessWidget {
+class AdminDonorDetailsScreen extends StatelessWidget {
+  final String docId; // NEW
   final Map<String, dynamic> donorData;
   final dynamic rewardPoints;
   final dynamic totalDonations;
 
-  const _AdminDonorDetailsScreen({
+  const AdminDonorDetailsScreen({
+    required this.docId,
     required this.donorData,
     required this.rewardPoints,
     required this.totalDonations,
@@ -301,6 +326,8 @@ class _AdminDonorDetailsScreen extends StatelessWidget {
               ],
             ),
           ),
+          const SizedBox(height: 14),
+          AdminAccountStatusCard(docId: docId, roleLabel: 'Donor'), // NEW
           const SizedBox(height: 14),
           _section(
             title: 'Signup Information',

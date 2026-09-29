@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:cloud_firestore/cloud_firestore.dart';
 import '../../../controllers/volunteer_details_controller.dart';
 
 class VolunteerDetailsScreen extends StatelessWidget {
@@ -28,11 +29,13 @@ class VolunteerDetailsScreen extends StatelessWidget {
     final String cnicBackUrl = data['cnicBackUrl'] ?? '';
     final String stage = data['verificationStage'] ?? 'Pending';
     final List categories = (data['categories'] as List?) ?? const [];
-    final String pastExperience = (data['pastExperience'] ?? '').toString().trim();
+    final String pastExperience =
+    (data['pastExperience'] ?? '').toString().trim();
     final dynamic createdAt = data['createdAt'];
     final bool isVerified = stage == 'Verified';
     final bool isRejected = stage == 'Rejected';
-    final bool canScheduleVideo = stage == 'Pending' || stage == 'Form_Reviewed';
+    final bool canScheduleVideo =
+        stage == 'Pending' || stage == 'Form_Reviewed';
     final bool canSchedulePhysical =
         stage == 'Video_Scheduled' || stage == 'Physical_Scheduled';
     final bool canDecide = !isVerified && !isRejected;
@@ -68,7 +71,10 @@ class VolunteerDetailsScreen extends StatelessWidget {
               ),
               title: const Text(
                 'Volunteer Details',
-                style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
               centerTitle: true,
             ),
@@ -118,19 +124,26 @@ class VolunteerDetailsScreen extends StatelessWidget {
                       runSpacing: 8,
                       children: categories.isEmpty
                           ? [
-                        Text('No roles selected',
-                            style: TextStyle(
-                                fontSize: 12, color: Colors.grey[400]))
+                        Text(
+                          'No roles selected',
+                          style: TextStyle(
+                            fontSize: 12,
+                            color: Colors.grey[400],
+                          ),
+                        )
                       ]
                           : categories.map((c) {
                         return Container(
                           padding: const EdgeInsets.symmetric(
-                              horizontal: 12, vertical: 6),
+                            horizontal: 12,
+                            vertical: 6,
+                          ),
                           decoration: BoxDecoration(
                             color: const Color(0xFFE6F5EE),
                             borderRadius: BorderRadius.circular(20),
                             border: Border.all(
-                                color: _emerald.withOpacity(0.3)),
+                              color: _emerald.withOpacity(0.3),
+                            ),
                           ),
                           child: Text(
                             c.toString(),
@@ -150,7 +163,19 @@ class VolunteerDetailsScreen extends StatelessWidget {
                   _SectionCard(
                     title: 'Weekly Availability',
                     icon: Icons.calendar_month_rounded,
-                    child: _AvailabilityScheduleView(scheduleData: data['availabilitySchedule']),
+                    child: _AvailabilityScheduleView(
+                      scheduleData: data['availabilitySchedule'],
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+
+                  // ── Specific Dates ────────────────────────────────
+                  _SectionCard(
+                    title: 'Specific Dates',
+                    icon: Icons.event_available_rounded,
+                    child: _SpecialDatesView(
+                      specialData: data['specialAvailability'],
+                    ),
                   ),
                   const SizedBox(height: 14),
 
@@ -159,11 +184,17 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     title: 'Past Experience',
                     icon: Icons.work_history_outlined,
                     child: Text(
-                      pastExperience.isEmpty ? 'No previous experience provided' : pastExperience,
+                      pastExperience.isEmpty
+                          ? 'No previous experience provided'
+                          : pastExperience,
                       style: TextStyle(
                         fontSize: 12.5,
-                        color: pastExperience.isEmpty ? Colors.grey[400] : const Color(0xFF14251E),
-                        fontStyle: pastExperience.isEmpty ? FontStyle.italic : FontStyle.normal,
+                        color: pastExperience.isEmpty
+                            ? Colors.grey[400]
+                            : const Color(0xFF14251E),
+                        fontStyle: pastExperience.isEmpty
+                            ? FontStyle.italic
+                            : FontStyle.normal,
                         height: 1.5,
                       ),
                     ),
@@ -176,9 +207,15 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     icon: Icons.credit_card_rounded,
                     child: Column(
                       children: [
-                        _CnicImage(label: 'Front Side', url: cnicFrontUrl),
+                        _CnicImage(
+                          label: 'Front Side',
+                          url: cnicFrontUrl,
+                        ),
                         const SizedBox(height: 10),
-                        _CnicImage(label: 'Back Side', url: cnicBackUrl),
+                        _CnicImage(
+                          label: 'Back Side',
+                          url: cnicBackUrl,
+                        ),
                       ],
                     ),
                   ),
@@ -198,6 +235,7 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                   ],
+
                   if (stage == 'Physical_Scheduled') ...[
                     _InfoBanner(
                       icon: Icons.location_on_rounded,
@@ -211,23 +249,29 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
                   ],
+
                   if (isRejected) ...[
                     _InfoBanner(
                       icon: Icons.cancel_rounded,
                       color: const Color(0xFFC0392B),
                       bg: const Color(0xFFFCEBEA),
                       title: 'Application Rejected',
-                      lines: [data['rejectionReason'] ?? ''],
+                      lines: [
+                        data['rejectionReason'] ?? '',
+                      ],
                     ),
                     const SizedBox(height: 14),
                   ],
+
                   if (isVerified) ...[
                     _InfoBanner(
                       icon: Icons.verified_rounded,
                       color: _emerald,
                       bg: const Color(0xFFE6F5EE),
                       title: 'Volunteer Verified',
-                      lines: const ['This volunteer can now receive tasks.'],
+                      lines: const [
+                        'This volunteer can now receive tasks.',
+                      ],
                     ),
                     const SizedBox(height: 14),
                   ],
@@ -243,7 +287,10 @@ class VolunteerDetailsScreen extends StatelessWidget {
                               label: 'Schedule\nVideo Call',
                               color: const Color(0xFF2563EB),
                               onTap: () => _showVideoCallSheet(
-                                  context, controller, docId),
+                                context,
+                                controller,
+                                docId,
+                              ),
                             ),
                           ),
                         if (canScheduleVideo && canSchedulePhysical)
@@ -255,7 +302,10 @@ class VolunteerDetailsScreen extends StatelessWidget {
                               label: 'Schedule\nPhysical Visit',
                               color: const Color(0xFF7C3AED),
                               onTap: () => _showPhysicalVisitSheet(
-                                  context, controller, docId),
+                                context,
+                                controller,
+                                docId,
+                              ),
                             ),
                           ),
                       ],
@@ -268,15 +318,25 @@ class VolunteerDetailsScreen extends StatelessWidget {
                       children: [
                         Expanded(
                           child: OutlinedButton.icon(
-                            onPressed: () =>
-                                _showRejectSheet(context, controller, docId),
-                            icon: const Icon(Icons.close_rounded, size: 18),
+                            onPressed: () => _showRejectSheet(
+                              context,
+                              controller,
+                              docId,
+                            ),
+                            icon: const Icon(
+                              Icons.close_rounded,
+                              size: 18,
+                            ),
                             label: const Text('Reject'),
                             style: OutlinedButton.styleFrom(
-                              foregroundColor: const Color(0xFFC0392B),
-                              side: const BorderSide(color: Color(0xFFC0392B)),
-                              padding:
-                              const EdgeInsets.symmetric(vertical: 14),
+                              foregroundColor:
+                              const Color(0xFFC0392B),
+                              side: const BorderSide(
+                                color: Color(0xFFC0392B),
+                              ),
+                              padding: const EdgeInsets.symmetric(
+                                vertical: 14,
+                              ),
                               shape: RoundedRectangleBorder(
                                 borderRadius: BorderRadius.circular(14),
                               ),
@@ -285,30 +345,37 @@ class VolunteerDetailsScreen extends StatelessWidget {
                         ),
                         const SizedBox(width: 10),
                         Expanded(
-                          child: Obx(() => ElevatedButton.icon(
-                            onPressed: controller.isSaving.value
-                                ? null
-                                : () async {
-                              bool ok = await controller
-                                  .approveVolunteer(docId);
-                              if (ok) Get.back();
-                            },
-                            icon: const Icon(Icons.check_rounded, size: 18),
-                            label: const Text('Approve'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: _emerald,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(14),
+                          child: Obx(
+                                () => ElevatedButton.icon(
+                              onPressed: controller.isSaving.value
+                                  ? null
+                                  : () async {
+                                bool ok = await controller
+                                    .approveVolunteer(docId);
+                                if (ok) Get.back();
+                              },
+                              icon: const Icon(
+                                Icons.check_rounded,
+                                size: 18,
+                              ),
+                              label: const Text('Approve'),
+                              style: ElevatedButton.styleFrom(
+                                backgroundColor: _emerald,
+                                foregroundColor: Colors.white,
+                                padding: const EdgeInsets.symmetric(
+                                  vertical: 14,
+                                ),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(14),
+                                ),
                               ),
                             ),
-                          )),
+                          ),
                         ),
                       ],
                     ),
                   ],
+
                   const SizedBox(height: 24),
                 ],
               ),
@@ -319,8 +386,11 @@ class VolunteerDetailsScreen extends StatelessWidget {
     );
   }
 
-  void _showVideoCallSheet(BuildContext context,
-      VolunteerDetailsController controller, String volunteerId) {
+  void _showVideoCallSheet(
+      BuildContext context,
+      VolunteerDetailsController controller,
+      String volunteerId,
+      ) {
     controller.videoDateController.clear();
     controller.videoTimeController.clear();
     controller.meetLinkController.clear();
@@ -330,11 +400,15 @@ class VolunteerDetailsScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
       ),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: SingleChildScrollView(
@@ -346,16 +420,28 @@ class VolunteerDetailsScreen extends StatelessWidget {
               const SizedBox(height: 16),
               const Row(
                 children: [
-                  Icon(Icons.videocam_rounded, color: Color(0xFF2563EB)),
+                  Icon(
+                    Icons.videocam_rounded,
+                    color: Color(0xFF2563EB),
+                  ),
                   SizedBox(width: 8),
-                  Text('Schedule Video Call',
-                      style: TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Schedule Video Call',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text('Volunteer will receive this via notification',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(
+                'Volunteer will receive this via notification',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
+              ),
               const SizedBox(height: 18),
               GestureDetector(
                 onTap: () => controller.pickVideoDate(context),
@@ -388,37 +474,47 @@ class VolunteerDetailsScreen extends StatelessWidget {
                 suffixIcon: Icons.link_rounded,
               ),
               const SizedBox(height: 20),
-              Obx(() => SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: controller.isSaving.value
-                      ? null
-                      : () async {
-                    bool ok = await controller
-                        .scheduleVideoCall(volunteerId);
-                    if (ok && context.mounted) {
-                      Navigator.pop(context);
-                      Get.back();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF2563EB),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              Obx(
+                    () => SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: controller.isSaving.value
+                        ? null
+                        : () async {
+                      bool ok = await controller
+                          .scheduleVideoCall(volunteerId);
+                      if (ok && context.mounted) {
+                        Navigator.pop(context);
+                        Get.back();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF2563EB),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: controller.isSaving.value
+                        ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                        : const Text(
+                      'Confirm & Notify Volunteer',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  child: controller.isSaving.value
-                      ? const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                      : const Text('Confirm & Notify Volunteer',
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -426,8 +522,11 @@ class VolunteerDetailsScreen extends StatelessWidget {
     );
   }
 
-  void _showPhysicalVisitSheet(BuildContext context,
-      VolunteerDetailsController controller, String volunteerId) {
+  void _showPhysicalVisitSheet(
+      BuildContext context,
+      VolunteerDetailsController controller,
+      String volunteerId,
+      ) {
     controller.physicalDateController.clear();
     controller.physicalTimeController.clear();
     controller.locationController.clear();
@@ -438,11 +537,15 @@ class VolunteerDetailsScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
       ),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: SingleChildScrollView(
@@ -454,16 +557,28 @@ class VolunteerDetailsScreen extends StatelessWidget {
               const SizedBox(height: 16),
               const Row(
                 children: [
-                  Icon(Icons.location_on_rounded, color: Color(0xFF7C3AED)),
+                  Icon(
+                    Icons.location_on_rounded,
+                    color: Color(0xFF7C3AED),
+                  ),
                   SizedBox(width: 8),
-                  Text('Schedule Physical Visit',
-                      style: TextStyle(
-                          fontSize: 17, fontWeight: FontWeight.bold)),
+                  Text(
+                    'Schedule Physical Visit',
+                    style: TextStyle(
+                      fontSize: 17,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
                 ],
               ),
               const SizedBox(height: 4),
-              Text('Set in-person verification appointment',
-                  style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+              Text(
+                'Set in-person verification appointment',
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey[500],
+                ),
+              ),
               const SizedBox(height: 18),
               GestureDetector(
                 onTap: () => controller.pickPhysicalDate(context),
@@ -503,37 +618,47 @@ class VolunteerDetailsScreen extends StatelessWidget {
                 maxLines: 2,
               ),
               const SizedBox(height: 20),
-              Obx(() => SizedBox(
-                width: double.infinity,
-                height: 50,
-                child: ElevatedButton(
-                  onPressed: controller.isSaving.value
-                      ? null
-                      : () async {
-                    bool ok = await controller
-                        .schedulePhysicalVisit(volunteerId);
-                    if (ok && context.mounted) {
-                      Navigator.pop(context);
-                      Get.back();
-                    }
-                  },
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: const Color(0xFF7C3AED),
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+              Obx(
+                    () => SizedBox(
+                  width: double.infinity,
+                  height: 50,
+                  child: ElevatedButton(
+                    onPressed: controller.isSaving.value
+                        ? null
+                        : () async {
+                      bool ok = await controller
+                          .schedulePhysicalVisit(volunteerId);
+                      if (ok && context.mounted) {
+                        Navigator.pop(context);
+                        Get.back();
+                      }
+                    },
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: const Color(0xFF7C3AED),
+                      foregroundColor: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                    ),
+                    child: controller.isSaving.value
+                        ? const SizedBox(
+                      width: 20,
+                      height: 20,
+                      child: CircularProgressIndicator(
+                        color: Colors.white,
+                        strokeWidth: 2,
+                      ),
+                    )
+                        : const Text(
+                      'Confirm & Send Instructions',
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                      ),
                     ),
                   ),
-                  child: controller.isSaving.value
-                      ? const SizedBox(
-                      width: 20, height: 20,
-                      child: CircularProgressIndicator(
-                          color: Colors.white, strokeWidth: 2))
-                      : const Text('Confirm & Send Instructions',
-                      style: TextStyle(
-                          fontSize: 15, fontWeight: FontWeight.w700)),
                 ),
-              )),
+              ),
             ],
           ),
         ),
@@ -541,8 +666,11 @@ class VolunteerDetailsScreen extends StatelessWidget {
     );
   }
 
-  void _showRejectSheet(BuildContext context,
-      VolunteerDetailsController controller, String volunteerId) {
+  void _showRejectSheet(
+      BuildContext context,
+      VolunteerDetailsController controller,
+      String volunteerId,
+      ) {
     controller.rejectReasonController.clear();
 
     showModalBottomSheet(
@@ -550,11 +678,15 @@ class VolunteerDetailsScreen extends StatelessWidget {
       isScrollControlled: true,
       backgroundColor: Colors.white,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+        borderRadius: BorderRadius.vertical(
+          top: Radius.circular(24),
+        ),
       ),
       builder: (_) => Padding(
         padding: EdgeInsets.only(
-          left: 20, right: 20, top: 20,
+          left: 20,
+          right: 20,
+          top: 20,
           bottom: MediaQuery.of(context).viewInsets.bottom + 20,
         ),
         child: Column(
@@ -565,55 +697,78 @@ class VolunteerDetailsScreen extends StatelessWidget {
             const SizedBox(height: 16),
             const Row(
               children: [
-                Icon(Icons.cancel_rounded, color: Color(0xFFC0392B)),
+                Icon(
+                  Icons.cancel_rounded,
+                  color: Color(0xFFC0392B),
+                ),
                 SizedBox(width: 8),
-                Text('Reject Application',
-                    style:
-                    TextStyle(fontSize: 17, fontWeight: FontWeight.bold)),
+                Text(
+                  'Reject Application',
+                  style: TextStyle(
+                    fontSize: 17,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
               ],
             ),
             const SizedBox(height: 4),
-            Text('This reason will be sent to the volunteer',
-                style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+            Text(
+              'This reason will be sent to the volunteer',
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
+            ),
             const SizedBox(height: 16),
             _SheetField(
               controller: controller.rejectReasonController,
               label: 'Rejection Reason *',
-              hint: 'e.g. Incomplete documents, failed verification...',
+              hint:
+              'e.g. Incomplete documents, failed verification...',
               maxLines: 3,
             ),
             const SizedBox(height: 20),
-            Obx(() => SizedBox(
-              width: double.infinity,
-              height: 50,
-              child: ElevatedButton(
-                onPressed: controller.isSaving.value
-                    ? null
-                    : () async {
-                  bool ok =
-                  await controller.rejectVolunteer(volunteerId);
-                  if (ok && context.mounted) {
-                    Navigator.pop(context);
-                    Get.back();
-                  }
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: const Color(0xFFC0392B),
-                  foregroundColor: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(14),
+            Obx(
+                  () => SizedBox(
+                width: double.infinity,
+                height: 50,
+                child: ElevatedButton(
+                  onPressed: controller.isSaving.value
+                      ? null
+                      : () async {
+                    bool ok = await controller
+                        .rejectVolunteer(volunteerId);
+                    if (ok && context.mounted) {
+                      Navigator.pop(context);
+                      Get.back();
+                    }
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: const Color(0xFFC0392B),
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                  child: controller.isSaving.value
+                      ? const SizedBox(
+                    width: 20,
+                    height: 20,
+                    child: CircularProgressIndicator(
+                      color: Colors.white,
+                      strokeWidth: 2,
+                    ),
+                  )
+                      : const Text(
+                    'Confirm Rejection',
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
                 ),
-                child: controller.isSaving.value
-                    ? const SizedBox(
-                    width: 20, height: 20,
-                    child: CircularProgressIndicator(
-                        color: Colors.white, strokeWidth: 2))
-                    : const Text('Confirm Rejection',
-                    style: TextStyle(
-                        fontSize: 15, fontWeight: FontWeight.w700)),
               ),
-            )),
+            ),
           ],
         ),
       ),
@@ -626,33 +781,48 @@ class VolunteerDetailsScreen extends StatelessWidget {
 // ==========================================================================
 class _AvailabilityScheduleView extends StatelessWidget {
   final dynamic scheduleData;
-  const _AvailabilityScheduleView({required this.scheduleData});
+
+  const _AvailabilityScheduleView({
+    required this.scheduleData,
+  });
 
   static const Color _emerald = Color(0xFF0F6E4F);
 
   @override
   Widget build(BuildContext context) {
-    final List schedule = (scheduleData is List) ? scheduleData : [];
+    final List schedule =
+    (scheduleData is List) ? scheduleData : [];
 
     if (schedule.isEmpty) {
       return Text(
         'Volunteer has not set their availability yet.',
-        style: TextStyle(fontSize: 12, color: Colors.grey[400]),
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[400],
+        ),
       );
     }
 
-    final availableDays =
-    schedule.where((e) => e['isAvailable'] == true).toList();
+    final availableDays = schedule
+        .where((e) => e['isAvailable'] == true)
+        .toList();
 
     if (availableDays.isEmpty) {
       return Row(
         children: [
-          Icon(Icons.event_busy_rounded, size: 16, color: Colors.grey[400]),
+          Icon(
+            Icons.event_busy_rounded,
+            size: 16,
+            color: Colors.grey[400],
+          ),
           const SizedBox(width: 8),
           Expanded(
             child: Text(
               'Volunteer has not marked any days as available.',
-              style: TextStyle(fontSize: 12, color: Colors.grey[500]),
+              style: TextStyle(
+                fontSize: 12,
+                color: Colors.grey[500],
+              ),
             ),
           ),
         ],
@@ -667,30 +837,158 @@ class _AvailabilityScheduleView extends StatelessWidget {
 
         return Container(
           margin: const EdgeInsets.only(bottom: 8),
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
           decoration: BoxDecoration(
             color: const Color(0xFFE6F5EE),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: _emerald.withOpacity(0.2)),
+            border: Border.all(
+              color: _emerald.withOpacity(0.2),
+            ),
           ),
           child: Row(
             children: [
               Container(
-                width: 30, height: 30,
-                decoration: const BoxDecoration(color: _emerald, shape: BoxShape.circle),
-                child: const Icon(Icons.check_rounded, size: 16, color: Colors.white),
+                width: 30,
+                height: 30,
+                decoration: const BoxDecoration(
+                  color: _emerald,
+                  shape: BoxShape.circle,
+                ),
+                child: const Icon(
+                  Icons.check_rounded,
+                  size: 16,
+                  color: Colors.white,
+                ),
               ),
               const SizedBox(width: 10),
               Expanded(
-                child: Text(day, style: const TextStyle(
-                    fontSize: 13, fontWeight: FontWeight.w600, color: Color(0xFF14251E))),
+                child: Text(
+                  day,
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: Color(0xFF14251E),
+                  ),
+                ),
               ),
-              Row(children: [
-                const Icon(Icons.access_time_rounded, size: 13, color: _emerald),
-                const SizedBox(width: 4),
-                Text('$start - $end', style: const TextStyle(
-                    fontSize: 11.5, color: _emerald, fontWeight: FontWeight.w600)),
-              ]),
+              Row(
+                children: [
+                  const Icon(
+                    Icons.access_time_rounded,
+                    size: 13,
+                    color: _emerald,
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    '$start - $end',
+                    style: const TextStyle(
+                      fontSize: 11.5,
+                      color: _emerald,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+        );
+      }).toList(),
+    );
+  }
+}
+
+// ==========================================================================
+// SPECIAL DATES VIEW
+// ==========================================================================
+class _SpecialDatesView extends StatelessWidget {
+  final dynamic specialData;
+
+  const _SpecialDatesView({
+    required this.specialData,
+  });
+
+  static const Color _emerald = Color(0xFF0F6E4F);
+
+  String _fmt(dynamic ts) {
+    if (ts == null) return '';
+
+    try {
+      if (ts is Timestamp) {
+        final d = ts.toDate();
+        return '${d.day}/${d.month}/${d.year}';
+      }
+
+      if (ts is DateTime) {
+        return '${ts.day}/${ts.month}/${ts.year}';
+      }
+    } catch (_) {}
+
+    return '';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final List list =
+    (specialData is List) ? specialData : [];
+
+    if (list.isEmpty) {
+      return Text(
+        'No specific date overrides set.',
+        style: TextStyle(
+          fontSize: 12,
+          color: Colors.grey[400],
+        ),
+      );
+    }
+
+    return Column(
+      children: list.map((item) {
+        final bool avail =
+            item is Map && item['isAvailable'] == true;
+
+        final String startDate =
+        item is Map ? _fmt(item['startDate']) : '';
+
+        final String endDate =
+        item is Map ? _fmt(item['endDate']) : '';
+
+        return Container(
+          margin: const EdgeInsets.only(bottom: 8),
+          padding: const EdgeInsets.symmetric(
+            horizontal: 12,
+            vertical: 10,
+          ),
+          decoration: BoxDecoration(
+            color: avail
+                ? const Color(0xFFE6F5EE)
+                : const Color(0xFFFCEBEA),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
+            children: [
+              Icon(
+                avail
+                    ? Icons.check_circle_rounded
+                    : Icons.cancel_rounded,
+                size: 16,
+                color: avail
+                    ? _emerald
+                    : const Color(0xFFC0392B),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  '$startDate — $endDate: '
+                      '${avail ? 'Available' : 'Unavailable'}',
+                  style: const TextStyle(
+                    fontSize: 12.5,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
             ],
           ),
         );
@@ -738,16 +1036,21 @@ class _ProfileHeaderCard extends StatelessWidget {
       child: Row(
         children: [
           Container(
-            width: 56, height: 56,
+            width: 56,
+            height: 56,
             decoration: const BoxDecoration(
               color: Color(0xFFE6F5EE),
               shape: BoxShape.circle,
             ),
             child: Center(
               child: Text(
-                name.isNotEmpty ? name[0].toUpperCase() : 'V',
+                name.isNotEmpty
+                    ? name[0].toUpperCase()
+                    : 'V',
                 style: const TextStyle(
-                  color: _emerald, fontSize: 22, fontWeight: FontWeight.bold,
+                  color: _emerald,
+                  fontSize: 22,
+                  fontWeight: FontWeight.bold,
                 ),
               ),
             ),
@@ -757,39 +1060,69 @@ class _ProfileHeaderCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(name,
-                    style: const TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.bold,
-                        color: Color(0xFF14251E))),
+                Text(
+                  name,
+                  style: const TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.bold,
+                    color: Color(0xFF14251E),
+                  ),
+                ),
                 const SizedBox(height: 3),
                 Row(
                   children: [
-                    Icon(Icons.email_outlined, size: 12, color: Colors.grey[500]),
+                    Icon(
+                      Icons.email_outlined,
+                      size: 12,
+                      color: Colors.grey[500],
+                    ),
                     const SizedBox(width: 4),
                     Expanded(
-                      child: Text(email,
-                          style: TextStyle(fontSize: 11.5, color: Colors.grey[600]),
-                          overflow: TextOverflow.ellipsis),
+                      child: Text(
+                        email,
+                        style: TextStyle(
+                          fontSize: 11.5,
+                          color: Colors.grey[600],
+                        ),
+                        overflow: TextOverflow.ellipsis,
+                      ),
                     ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.phone_outlined, size: 12, color: Colors.grey[500]),
+                    Icon(
+                      Icons.phone_outlined,
+                      size: 12,
+                      color: Colors.grey[500],
+                    ),
                     const SizedBox(width: 4),
-                    Text(phone.isEmpty ? 'Not provided' : phone,
-                        style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                    Text(
+                      phone.isEmpty ? 'Not provided' : phone,
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey[600],
+                      ),
+                    ),
                   ],
                 ),
                 const SizedBox(height: 2),
                 Row(
                   children: [
-                    Icon(Icons.calendar_today_outlined, size: 12, color: Colors.grey[500]),
+                    Icon(
+                      Icons.calendar_today_outlined,
+                      size: 12,
+                      color: Colors.grey[500],
+                    ),
                     const SizedBox(width: 4),
-                    Text('Applied $appliedDate',
-                        style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                    Text(
+                      'Applied $appliedDate',
+                      style: TextStyle(
+                        fontSize: 11.5,
+                        color: Colors.grey[600],
+                      ),
+                    ),
                   ],
                 ),
               ],
@@ -840,18 +1173,30 @@ class _SectionCard extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, size: 16, color: _emerald),
+              Icon(
+                icon,
+                size: 16,
+                color: _emerald,
+              ),
               const SizedBox(width: 6),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 13.5, fontWeight: FontWeight.bold,
-                      color: Color(0xFF14251E))),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 13.5,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF14251E),
+                ),
+              ),
               const Spacer(),
               if (trailing != null)
-                Text(trailing!,
-                    style: const TextStyle(
-                        fontSize: 11.5, color: _emerald,
-                        fontWeight: FontWeight.w600)),
+                Text(
+                  trailing!,
+                  style: const TextStyle(
+                    fontSize: 11.5,
+                    color: _emerald,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
             ],
           ),
           const SizedBox(height: 12),
@@ -869,7 +1214,10 @@ class _CnicImage extends StatelessWidget {
   final String label;
   final String url;
 
-  const _CnicImage({required this.label, required this.url});
+  const _CnicImage({
+    required this.label,
+    required this.url,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -881,7 +1229,10 @@ class _CnicImage extends StatelessWidget {
         builder: (_) => Dialog(
           child: ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.network(url, fit: BoxFit.contain),
+            child: Image.network(
+              url,
+              fit: BoxFit.contain,
+            ),
           ),
         ),
       ),
@@ -894,8 +1245,11 @@ class _CnicImage extends StatelessWidget {
               height: 130,
               width: double.infinity,
               color: const Color(0xFFF4FAF7),
-              child: Icon(Icons.image_not_supported_outlined,
-                  color: Colors.grey[400], size: 30),
+              child: Icon(
+                Icons.image_not_supported_outlined,
+                color: Colors.grey[400],
+                size: 30,
+              ),
             )
                 : Image.network(
               url,
@@ -905,8 +1259,10 @@ class _CnicImage extends StatelessWidget {
               errorBuilder: (_, __, ___) => Container(
                 height: 130,
                 color: const Color(0xFFF4FAF7),
-                child: Icon(Icons.broken_image_outlined,
-                    color: Colors.grey[400]),
+                child: Icon(
+                  Icons.broken_image_outlined,
+                  color: Colors.grey[400],
+                ),
               ),
             ),
           ),
@@ -914,13 +1270,21 @@ class _CnicImage extends StatelessWidget {
             bottom: 8,
             left: 8,
             child: Container(
-              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+              padding: const EdgeInsets.symmetric(
+                horizontal: 10,
+                vertical: 4,
+              ),
               decoration: BoxDecoration(
                 color: Colors.black.withOpacity(0.6),
                 borderRadius: BorderRadius.circular(8),
               ),
-              child: Text(label,
-                  style: const TextStyle(color: Colors.white, fontSize: 11)),
+              child: Text(
+                label,
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 11,
+                ),
+              ),
             ),
           ),
         ],
@@ -955,27 +1319,44 @@ class _InfoBanner extends StatelessWidget {
       decoration: BoxDecoration(
         color: bg,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: color.withOpacity(0.25)),
+        border: Border.all(
+          color: color.withOpacity(0.25),
+        ),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: color, size: 22),
+          Icon(
+            icon,
+            color: color,
+            size: 22,
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(title,
-                    style: TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.bold, color: color)),
+                Text(
+                  title,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.bold,
+                    color: color,
+                  ),
+                ),
                 const SizedBox(height: 4),
-                ...lines.map((l) => Padding(
-                  padding: const EdgeInsets.only(top: 2),
-                  child: Text(l,
+                ...lines.map(
+                      (l) => Padding(
+                    padding: const EdgeInsets.only(top: 2),
+                    child: Text(
+                      l,
                       style: TextStyle(
-                          fontSize: 11.5, color: color.withOpacity(0.85))),
-                )),
+                        fontSize: 11.5,
+                        color: color.withOpacity(0.85),
+                      ),
+                    ),
+                  ),
+                ),
               ],
             ),
           ),
@@ -1010,16 +1391,27 @@ class _ActionOutlineBtn extends StatelessWidget {
         decoration: BoxDecoration(
           color: color.withOpacity(0.06),
           borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: color.withOpacity(0.35)),
+          border: Border.all(
+            color: color.withOpacity(0.35),
+          ),
         ),
         child: Column(
           children: [
-            Icon(icon, color: color, size: 22),
+            Icon(
+              icon,
+              color: color,
+              size: 22,
+            ),
             const SizedBox(height: 6),
-            Text(label,
-                textAlign: TextAlign.center,
-                style: TextStyle(
-                    fontSize: 11.5, color: color, fontWeight: FontWeight.w700)),
+            Text(
+              label,
+              textAlign: TextAlign.center,
+              style: TextStyle(
+                fontSize: 11.5,
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
           ],
         ),
       ),
@@ -1035,7 +1427,8 @@ class _SheetHandle extends StatelessWidget {
   Widget build(BuildContext context) {
     return Center(
       child: Container(
-        width: 40, height: 4,
+        width: 40,
+        height: 4,
         decoration: BoxDecoration(
           color: Colors.grey[300],
           borderRadius: BorderRadius.circular(2),
@@ -1065,8 +1458,13 @@ class _SheetField extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
-            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+        Text(
+          label,
+          style: const TextStyle(
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
         const SizedBox(height: 6),
         TextField(
           controller: controller,
@@ -1074,25 +1472,40 @@ class _SheetField extends StatelessWidget {
           style: const TextStyle(fontSize: 13),
           decoration: InputDecoration(
             hintText: hint,
-            hintStyle: TextStyle(color: Colors.grey[400], fontSize: 13),
+            hintStyle: TextStyle(
+              color: Colors.grey[400],
+              fontSize: 13,
+            ),
             suffixIcon: suffixIcon != null
-                ? Icon(suffixIcon, size: 18, color: Colors.grey[400])
+                ? Icon(
+              suffixIcon,
+              size: 18,
+              color: Colors.grey[400],
+            )
                 : null,
             filled: true,
             fillColor: const Color(0xFFF4FAF7),
-            contentPadding:
-            const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+            contentPadding: const EdgeInsets.symmetric(
+              horizontal: 14,
+              vertical: 12,
+            ),
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: Colors.grey[300]!,
+              ),
             ),
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: BorderSide(color: Colors.grey[300]!),
+              borderSide: BorderSide(
+                color: Colors.grey[300]!,
+              ),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(10),
-              borderSide: const BorderSide(color: Color(0xFF0F6E4F)),
+              borderSide: const BorderSide(
+                color: Color(0xFF0F6E4F),
+              ),
             ),
           ),
         ),

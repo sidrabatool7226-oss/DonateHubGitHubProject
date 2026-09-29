@@ -1,9 +1,9 @@
-import 'dart:io';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:image_picker/image_picker.dart';
 import '../../services/cloudinary_service.dart';
+import '../../services/picked_image.dart';
 
 class EventController extends GetxController {
   final FirebaseFirestore _db = FirebaseFirestore.instance;
@@ -11,7 +11,7 @@ class EventController extends GetxController {
 
   // ── Observables ──────────────────────────────────────────────────────
   var isLoading = false.obs;
-  var selectedImage = Rxn<File>();
+  var selectedImage = Rxn<PickedImage>();
 
   // Form controllers
   final titleController = TextEditingController();
@@ -19,6 +19,7 @@ class EventController extends GetxController {
   final locationController = TextEditingController();
   final startDateController = TextEditingController();
   final endDateController = TextEditingController();
+  final volunteersNeededController = TextEditingController(); // NEW
 
   // Selected dates
   DateTime? startDate;
@@ -31,16 +32,15 @@ class EventController extends GetxController {
     locationController.dispose();
     startDateController.dispose();
     endDateController.dispose();
+    volunteersNeededController.dispose(); // NEW
     super.onClose();
   }
 
-  // ── Pick Image ───────────────────────────────────────────────────────
+  // ── Pick Image ─────────────────────────────────────────────────── (CHANGED)
   Future<void> pickImage() async {
     final XFile? image = await ImagePicker()
         .pickImage(source: ImageSource.gallery, imageQuality: 70);
-    if (image != null) {
-      selectedImage.value = File(image.path);
-    }
+    selectedImage.value = await PickedImage.fromXFile(image);
   }
 
   // ── Clear Form ───────────────────────────────────────────────────────
@@ -50,6 +50,7 @@ class EventController extends GetxController {
     locationController.clear();
     startDateController.clear();
     endDateController.clear();
+    volunteersNeededController.clear(); // NEW
     selectedImage.value = null;
     startDate = null;
     endDate = null;
@@ -75,7 +76,6 @@ class EventController extends GetxController {
       startDate = picked;
       startDateController.text =
       '${picked.day}/${picked.month}/${picked.year}';
-      // End date reset karo agar start date baad ki ho
       if (endDate != null && endDate!.isBefore(picked)) {
         endDate = null;
         endDateController.clear();
@@ -106,7 +106,7 @@ class EventController extends GetxController {
     }
   }
 
-  // ── Add Event ────────────────────────────────────────────────────────
+  // ── Add Event ────────────────────────────────────────────────────── (CHANGED upload line only)
   Future<bool> addEvent() async {
     if (titleController.text.trim().isEmpty ||
         descController.text.trim().isEmpty ||
@@ -127,14 +127,12 @@ class EventController extends GetxController {
     isLoading.value = true;
 
     try {
-      // Image upload
       String imageUrl = '';
       if (selectedImage.value != null) {
-        String? url = await _cloudinary.uploadImage(selectedImage.value!);
+        String? url = await selectedImage.value!.upload(_cloudinary);
         if (url != null) imageUrl = url;
       }
 
-      // Firestore mein save
       await _db.collection('events').add({
         'title': titleController.text.trim(),
         'description': descController.text.trim(),
@@ -148,6 +146,8 @@ class EventController extends GetxController {
         'startDateStr': startDateController.text.trim(),
         'endDateStr': endDateController.text.trim(),
         'image': imageUrl,
+        // NEW — how many volunteers this event needs; 0 means "not specified".
+        'volunteersNeeded': int.tryParse(volunteersNeededController.text.trim()) ?? 0,
         'isActive': true,
         'createdAt': FieldValue.serverTimestamp(),
       });

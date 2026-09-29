@@ -18,9 +18,15 @@ class AuthService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final GoogleSignIn _googleSignIn = GoogleSignIn();
 
-  // ── Admin credentials (hardcoded — only admin can login, not signup) ─
+  // ── Admin identity (email only — the real password lives in Firebase
+  // Auth, never in source code) ────────────────────────────────────────
+  // FIXED — a hardcoded 'adminPassword' constant used to sit here. It was
+  // never actually read or compared anywhere in this file; the real
+  // password check already happens inside signInWithEmailAndPassword()
+  // below, against whatever password is set for this account in Firebase
+  // Auth. The constant was dead code that also happened to leak a real,
+  // working password in plain text. Removing it changes no behavior.
   static const String adminEmail = 'donatehubadmin@gmail.com';
-  static const String adminPassword = 'hastiapnihababkisihy221025';
 
   // ── Get currently logged-in user ──────────────────────────────────────
   User? get currentUser => _auth.currentUser;
@@ -154,6 +160,18 @@ class AuthService {
       Map<String, dynamic> userData =
       userDoc.data() as Map<String, dynamic>;
 
+      // NEW — actually enforce 'status'. Previously this field was
+      // fetched and returned but never checked, so an admin marking
+      // a Manager/Donor/Volunteer 'inactive' had no real effect —
+      // the account could still log in normally.
+      if ((userData['status'] ?? 'active').toString() == 'inactive') {
+        await _auth.signOut();
+        return {
+          'success': false,
+          'message': 'This account has been deactivated. Please contact the administrator.',
+        };
+      }
+
       return {
         'success': true,
         'role': userData['role'],
@@ -208,6 +226,17 @@ class AuthService {
       if (userDoc.exists) {
         Map<String, dynamic> userData =
         userDoc.data() as Map<String, dynamic>;
+
+        // NEW — same enforcement as the email/password path above.
+        if ((userData['status'] ?? 'active').toString() == 'inactive') {
+          await _auth.signOut();
+          await _googleSignIn.signOut().catchError((_) {});
+          return {
+            'success': false,
+            'message': 'This account has been deactivated. Please contact the administrator.',
+          };
+        }
+
         return {
           'success': true,
           'role': userData['role'],

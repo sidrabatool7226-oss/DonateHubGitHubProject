@@ -43,7 +43,7 @@ class VolunteerEventsController extends GetxController {
         'volunteerId': uid,
         'volunteerName': userData['name'] ?? 'Volunteer',
         'volunteerEmail': userData['email'] ?? '',
-        'volunteerPhone': userData['phone'] ?? '',
+        'volunteerPhone': userData['mobileNumber'] ?? '', // FIXED — was 'phone'
         'joinedAt': FieldValue.serverTimestamp(),
       });
 

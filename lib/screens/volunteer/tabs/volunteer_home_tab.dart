@@ -1,11 +1,14 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/volunteer_home_controller.dart';
 import '../../../controllers/volunteer_tasks_controller.dart';
 import 'volunteer_tasks_tab.dart';
+import '../../../widgets/notification_bell_icon.dart'; // NEW
 
 class VolunteerHomeTab extends StatelessWidget {
-  const VolunteerHomeTab({super.key});
+  final VoidCallback? onGoToProfile; // NEW
+  const VolunteerHomeTab({super.key, this.onGoToProfile});
 
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _lightGreen = Color(0xFF2D8A52);
@@ -26,12 +29,14 @@ class VolunteerHomeTab extends StatelessWidget {
           return SingleChildScrollView(
             child: Column(
               children: [
-                _Header(controller: controller),
+                _Header(controller: controller, onGoToProfile: onGoToProfile),
                 Padding(
                   padding: const EdgeInsets.all(16),
                   child: Column(
                     children: [
                       _AvailabilityToggleCard(controller: controller),
+                      const SizedBox(height: 14),
+                      _SpecialDatesCard(controller: controller), // NEW
                       const SizedBox(height: 14),
                       _StatsRow(controller: controller),
                       const SizedBox(height: 20),
@@ -54,7 +59,8 @@ class VolunteerHomeTab extends StatelessWidget {
 // ==========================================================================
 class _Header extends StatelessWidget {
   final VolunteerHomeController controller;
-  const _Header({required this.controller});
+  final VoidCallback? onGoToProfile; // NEW
+  const _Header({required this.controller, this.onGoToProfile});
 
   static const Color _green = Color(0xFF1B6B3A);
   static const Color _lightGreen = Color(0xFF2D8A52);
@@ -81,14 +87,24 @@ class _Header extends StatelessWidget {
               ],
             ),
           ),
-          Container(
-            width: 46, height: 46,
-            decoration: BoxDecoration(
-              color: Colors.white.withOpacity(0.18),
-              shape: BoxShape.circle,
-              border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
-            ),
-            child: const Icon(Icons.volunteer_activism_rounded, color: Colors.white, size: 22),
+          Row(
+            children: [
+              NotificationBellIcon(accentColor: _green),
+              const SizedBox(width: 10),
+              GestureDetector(
+                onTap: onGoToProfile,
+                child: Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.18),
+                    shape: BoxShape.circle,
+                    border: Border.all(color: Colors.white.withOpacity(0.4), width: 1.5),
+                  ),
+                  child: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 22),
+                ),
+              ),
+            ],
           ),
         ],
       )),
@@ -485,6 +501,114 @@ class _TimePickerBtn extends StatelessWidget {
             Text(time, style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold, color: _green)),
           ],
         ),
+      ),
+    );
+  }
+}
+class _SpecialDatesCard extends StatelessWidget {
+  final VolunteerHomeController controller;
+  const _SpecialDatesCard({required this.controller});
+
+  static const Color _green = Color(0xFF1B6B3A);
+
+  Future<void> _addRange(BuildContext context) async {
+    final now = DateTime.now();
+    final range = await showDateRangePicker(
+      context: context,
+      firstDate: now,
+      lastDate: DateTime(now.year + 1),
+    );
+    if (range == null) return;
+
+    final bool? isAvailable = await showDialog<bool>(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Mark this period as'),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(context, false), child: const Text('Unavailable')),
+          TextButton(onPressed: () => Navigator.pop(context, true), child: const Text('Available')),
+        ],
+      ),
+    );
+    if (isAvailable == null) return;
+
+    controller.addSpecialDate(range.start, range.end, isAvailable, '');
+  }
+
+  String _fmt(dynamic ts) {
+    if (ts == null) return '';
+    final d = (ts as Timestamp).toDate();
+    return '${d.day}/${d.month}/${d.year}';
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 12, offset: const Offset(0, 4))],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(children: [
+            Container(
+              width: 32, height: 32,
+              decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(9)),
+              child: const Icon(Icons.date_range_rounded, size: 17, color: _green),
+            ),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Specific Dates', style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.bold)),
+                  Text('Override your weekly pattern for a date range', style: TextStyle(fontSize: 10.5, color: Colors.grey)),
+                ],
+              ),
+            ),
+            IconButton(
+              icon: const Icon(Icons.add_circle_outline_rounded, color: _green),
+              onPressed: () => _addRange(context),
+            ),
+          ]),
+          const SizedBox(height: 10),
+          Obx(() {
+            if (controller.specialDates.isEmpty) {
+              return Text('No specific dates added yet', style: TextStyle(fontSize: 12, color: Colors.grey[400]));
+            }
+            return Column(
+              children: controller.specialDates.asMap().entries.map((entry) {
+                final i = entry.key;
+                final item = entry.value;
+                final bool avail = item['isAvailable'] == true;
+                return Container(
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                  decoration: BoxDecoration(
+                    color: avail ? const Color(0xFFE6F5EE) : const Color(0xFFFCEBEA),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Row(children: [
+                    Icon(avail ? Icons.check_circle_rounded : Icons.cancel_rounded,
+                        size: 16, color: avail ? _green : const Color(0xFFC0392B)),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text('${_fmt(item['startDate'])} — ${_fmt(item['endDate'])}: ${avail ? 'Available' : 'Unavailable'}',
+                          style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600)),
+                    ),
+                    GestureDetector(
+                      onTap: () => controller.removeSpecialDate(i),
+                      child: Icon(Icons.close_rounded, size: 16, color: Colors.grey[500]),
+                    ),
+                  ]),
+                );
+              }).toList(),
+            );
+          }),
+        ],
       ),
     );
   }

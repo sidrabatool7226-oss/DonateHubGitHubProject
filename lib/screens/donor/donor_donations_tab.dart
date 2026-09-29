@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 
 import 'donation_feedback_sheet.dart';
+import '../../widgets/donor_pickup_volunteer_card.dart'; // NEW — volunteer assignment card
 
 class DonorDonationsTab extends StatefulWidget {
   const DonorDonationsTab({super.key});
@@ -2230,20 +2231,17 @@ class DonationDetailScreen
                 'Pickup Information',
                 icon: Icons
                     .local_shipping_outlined,
-                child:
-                _MessageBox(
+                child: status == 'delivered'
+                    ? _MessageBox(
                   icon: Icons
                       .directions_bike_rounded,
-                  text:
-                  status ==
-                      'delivered'
-                      ? 'Your donation has been collected and delivered to LSOH!'
-                      : 'A volunteer has been assigned to collect your donation.',
+                  text: 'Your donation has been collected and delivered to LSOH!',
                   color:
                   Colors.orange[800]!,
                   background:
                   Colors.orange[50]!,
-                ),
+                )
+                    : DonorPickupVolunteerCard(donationId: docId), // NEW — volunteer name/phone/status/map
               ),
             ],
 
@@ -2319,7 +2317,6 @@ class DonationDetailScreen
 // ============================================================================
 // DETAIL TIMELINE
 // ============================================================================
-
 class _DetailTimeline
     extends StatelessWidget {
   final String status;
@@ -2333,121 +2330,65 @@ class _DetailTimeline
   @override
   Widget build(BuildContext context) {
     final steps = isFund
-        ? const [
-      'Submitted',
-      'Verified',
-      'Completed',
-    ]
-        : const [
-      'Submitted',
-      'Approved',
-      'Pickup',
-      'Delivered',
-      'Completed',
-    ];
+        ? const ['Submitted', 'Verified', 'Completed']
+        : const ['Submitted', 'Approved', 'Pickup', 'Delivered', 'Completed'];
 
-    final activeStep =
-    _activeStep();
+    final activeStep = _activeStep();
 
     return Row(
-      children:
-      List.generate(
-        steps.length,
-            (index) {
-          final done =
-              index <= activeStep;
+      children: List.generate(steps.length, (index) {
+        final bool done = index <= activeStep;
+        final bool last = index == steps.length - 1;
+        final bool linePast = index < activeStep;
 
-          final last =
-              index ==
-                  steps.length - 1;
+        final Color doneColor = const Color(0xFF1B6B3A);
+        final Color pendingColor = Colors.grey[200]!;
+        final Color pendingTextColor = Colors.grey[400]!;
 
-          return Expanded(
-            child: Row(
-              children: [
+        return Expanded(
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  children: [
+                    Container(
+                      width: 24,
+                      height: 24,
+                      decoration: BoxDecoration(
+                        color: done ? doneColor : pendingColor,
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        done ? Icons.check_rounded : Icons.circle,
+                        size: done ? 14 : 6,
+                        color: done ? Colors.white : pendingTextColor,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      steps[index],
+                      textAlign: TextAlign.center,
+                      style: TextStyle(
+                        fontSize: 8.5,
+                        color: done ? doneColor : pendingTextColor,
+                        fontWeight: done ? FontWeight.w600 : FontWeight.normal,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (!last)
                 Expanded(
-                  child: Column(
-                    children: [
-                      Container(
-                        width: 24,
-                        height: 24,
-                        decoration:
-                        BoxDecoration(
-                          color: done
-                              ? const Color(
-                            0xFF1B6B3A,
-                          )
-                              : Colors
-                              .grey[200],
-                          shape:
-                          BoxShape
-                              .circle,
-                        ),
-                        child:
-                        Icon(
-                          done
-                              ? Icons
-                              .check_rounded
-                              : Icons.circle,
-                          size: done
-                              ? 14
-                              : 6,
-                          color: done
-                              ? Colors.white
-                              : Colors
-                              .grey[400],
-                        ),
-                      ),
-                      const SizedBox(
-                        height: 4,
-                      ),
-                      Text(
-                        steps[index],
-                        textAlign:
-                        TextAlign.center,
-                        style:
-                        TextStyle(
-                          fontSize:
-                          8.5,
-                          color: done
-                              ? const Color(
-                            0xFF1B6B3A,
-                          )
-                              : Colors
-                              .grey[400],
-                          fontWeight: done
-                              ? FontWeight
-                              .w600
-                              : FontWeight
-                              .normal,
-                        ),
-                      ),
-                    ],
+                  child: Container(
+                    height: 2,
+                    margin: const EdgeInsets.only(bottom: 18),
+                    color: linePast ? doneColor : pendingColor,
                   ),
                 ),
-                if (!last)
-                  Expanded(
-                    child:
-                    Container(
-                      height: 2,
-                      margin:
-                      const EdgeInsets
-                          .only(
-                        bottom: 18,
-                      ),
-                      color: index <
-                          activeStep
-                          ? const Color(
-                        0xFF1B6B3A,
-                      )
-                          : Colors
-                          .grey[200],
-                    ),
-                  ),
-              ],
-            ),
-          );
-        },
-      ),
+            ],
+          ),
+        );
+      }),
     );
   }
 
@@ -2476,7 +2417,6 @@ class _DetailTimeline
     }
   }
 }
-
 // ============================================================================
 // DETAIL CARD
 // ============================================================================

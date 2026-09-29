@@ -61,11 +61,30 @@ class ManagerTasksController extends GetxController {
   }) async {
     isSaving.value = true;
     try {
+      // NEW — volunteer's phone, so the donor can be told who is coming
+      // and can call them. Read-only lookup of the volunteer's own user
+      // doc; nothing else from that doc (CNIC, email, reward points,
+      // home address, etc.) is read or stored anywhere here.
+      String volunteerPhone = '';
+      try {
+        final volunteerDoc = await _db.collection('users').doc(volunteerId).get();
+        volunteerPhone = (volunteerDoc.data()?['mobileNumber'] ?? '').toString();
+      } catch (_) {
+        // Best-effort only — assignment must not fail if this lookup fails.
+      }
+
+      final String itemName = (donationData['itemName'] ?? '').toString();
+      final quantity = donationData['quantity'] ?? 1;
+      final String pickupAddress =
+      (donationData['address'] ?? donationData['pickupAddress'] ?? '').toString();
+
       final taskRef = await _db.collection('tasks').add({
         'donationId': donationId,
         'volunteerId': volunteerId,
         'volunteerName': volunteerName,
+        'volunteerPhone': volunteerPhone, // NEW
         'taskCategory': 'Resource Pickup', // FIXED — was donationData['category']
+        'category': _normalizeInventoryCategory(donationData['category']), // FIXED (Bug 1) — task now stores the donation's category
         'title': donationData['itemName'] ?? 'Resource Pickup',
         'itemName': donationData['itemName'] ?? '',
         'quantity': donationData['quantity'] ?? 1,
@@ -98,14 +117,23 @@ class ManagerTasksController extends GetxController {
       });
 
       if ((donationData['donorId'] ?? '').toString().isNotEmpty) {
+        // NEW — richer, professional donor notification: operational
+        // info only (name, phone, item, quantity, pickup address).
+        // Deliberately excludes CNIC, volunteer home address, email,
+        // reward points, and any other personal profile detail.
         await _db.collection('notifications').add({
           'toUserId': donationData['donorId'],
-          'title': 'Pickup Scheduled',
-          'message': 'A volunteer has been assigned to collect your donation.',
+          'title': 'Pickup Volunteer Assigned',
+          'message': '$volunteerName has been assigned to pick up your donation.',
           'type': 'pickup_assigned',
           'entityId': donationId,
           'isRead': false,
           'createdAt': FieldValue.serverTimestamp(),
+          'volunteerName': volunteerName,
+          'volunteerPhone': volunteerPhone,
+          'itemName': itemName,
+          'quantity': quantity,
+          'pickupAddress': pickupAddress,
         });
       }
 
@@ -131,9 +159,19 @@ class ManagerTasksController extends GetxController {
   }) async {
     isSaving.value = true;
     try {
+      // NEW — new volunteer's phone, same read-only lookup as assignVolunteer.
+      String newVolunteerPhone = '';
+      try {
+        final volunteerDoc = await _db.collection('users').doc(newVolunteerId).get();
+        newVolunteerPhone = (volunteerDoc.data()?['mobileNumber'] ?? '').toString();
+      } catch (_) {
+        // Best-effort only.
+      }
+
       await _db.collection('tasks').doc(taskId).update({
         'volunteerId': newVolunteerId,
         'volunteerName': newVolunteerName,
+        'volunteerPhone': newVolunteerPhone, // NEW
         'status': 'assigned',
         'assignedAt': FieldValue.serverTimestamp(),
         'reassignedFrom': oldVolunteerId,
@@ -149,6 +187,35 @@ class ManagerTasksController extends GetxController {
         'isRead': false,
         'createdAt': FieldValue.serverTimestamp(),
       });
+
+      // NEW — keep the donor informed when their assigned volunteer
+      // changes. All fields read here (donorId, itemName, quantity,
+      // pickupAddress) already live on this same task document — no
+      // extra read of the donations collection is needed.
+      try {
+        final taskSnap = await _db.collection('tasks').doc(taskId).get();
+        final taskData = taskSnap.data() ?? {};
+        final String donorId = (taskData['donorId'] ?? '').toString();
+        if (donorId.isNotEmpty) {
+          await _db.collection('notifications').add({
+            'toUserId': donorId,
+            'title': 'Pickup Volunteer Updated',
+            'message': '$newVolunteerName has been assigned to pick up your donation.',
+            'type': 'pickup_assigned',
+            'entityId': (taskData['donationId'] ?? '').toString(),
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+            'volunteerName': newVolunteerName,
+            'volunteerPhone': newVolunteerPhone,
+            'itemName': taskData['itemName'] ?? '',
+            'quantity': taskData['quantity'] ?? 1,
+            'pickupAddress': taskData['pickupAddress'] ?? '',
+          });
+        }
+      } catch (_) {
+        // Best-effort only — reassignment itself must not fail if this
+        // notification can't be sent.
+      }
 
       Get.snackbar('Reassigned', 'Task reassigned to $newVolunteerName',
           backgroundColor: Colors.green[50], colorText: Colors.green[700],
@@ -181,6 +248,9 @@ class ManagerTasksController extends GetxController {
         donationData = donationDocSnap.data() ?? {};
       }
       final bool alreadyEmailed = donationData['completionEmailSent'] == true;
+      // FIXED (Bug 1) — tasks never stored 'category', so inventory was always 'Other'
+      final String inventoryCategory = _normalizeInventoryCategory(
+          taskData['category'] ?? donationData['category']);
 
       WriteBatch batch = _db.batch();
 
@@ -196,7 +266,7 @@ class ManagerTasksController extends GetxController {
         });
       }
 
-      if (donorId.toString().isNotEmpty) {
+      if (donorId.toString().isNotEmpty && donationData['rewardGiven'] != true) {
         batch.set(
           _db.collection('donors').doc(donorId),
           {
@@ -205,6 +275,9 @@ class ManagerTasksController extends GetxController {
           },
           SetOptions(merge: true),
         );
+        if (donationId != null && donationId.toString().isNotEmpty) {
+          batch.update(_db.collection('donations').doc(donationId), {'rewardGiven': true});
+        }
       }
 
       final volunteerId = taskData['volunteerId'] ?? '';
@@ -227,7 +300,7 @@ class ManagerTasksController extends GetxController {
           await InventoryController.autoAddFromVolunteer(
             db: _db,
             itemName: itemName,
-            category: taskData['category'] ?? 'Other',
+            category: inventoryCategory,
             quantity: quantity.toInt(),
             donationId: donationId,
             donorName: taskData['donorName'] ?? 'Donor',
@@ -279,6 +352,13 @@ class ManagerTasksController extends GetxController {
     } finally {
       isSaving.value = false;
     }
+  }
+
+  // FIXED (Bug 1) — donor category 'Others' == inventory category 'Other'; empty -> 'Other'.
+  String _normalizeInventoryCategory(dynamic raw) {
+    final String c = (raw ?? '').toString().trim();
+    if (c.isEmpty || c.toLowerCase() == 'others') return 'Other';
+    return c;
   }
 
   String timeAgo(dynamic ts) {

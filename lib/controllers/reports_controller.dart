@@ -108,13 +108,19 @@ class ReportsController extends GetxController {
     for (var doc in docs) {
       final data = doc.data();
       final status = data['status'] ?? '';
-      final type = data['type'] ?? '';
+      final String type = (data['type'] ?? '').toString();
+      // FIXED (Bug 2) — an explicit 'type' always wins. Only older documents saved
+      // WITHOUT a type fall back to guessing from their fields.
+      final bool isFund =
+          type == 'fund' || (type.isEmpty && data.containsKey('amount'));
+      final bool isResource =
+          type == 'resource' || (type.isEmpty && data.containsKey('itemName'));
 
       if (status == 'approved' || status == 'completed') approved++;
       if (status == 'pending') pending++;
       if (status == 'rejected') rejected++;
-      if (type == 'fund') fund++;
-      if (type == 'resource') resource++;
+      if (isFund) fund++;
+      if (isResource) resource++;
     }
 
     approvedDonations.value = approved;

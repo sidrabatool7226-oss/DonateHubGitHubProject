@@ -66,6 +66,7 @@ class FirestoreService {
         'donorPhone': donorPhone,
         'donorCnic': donorCnic,
         'receiptImageUrl': receiptImageUrl,
+        'type': 'resource', // FIXED (Bug 2) — donor resource donations had no type, so reports missed them
         'donorId': currentUser?.uid ?? '',       // NEW
         'userEmail': currentUser?.email ?? '',   // NEW — matches fund donation field naming
         'status': 'pending',
