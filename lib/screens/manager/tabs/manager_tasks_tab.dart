@@ -2,6 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/manager_tasks_controller.dart';
+import '../../../widgets/admin_page_kit.dart'; // NEW — whole-page scroll (shared widget)
 import '../screens/assign_volunteer_screen.dart';
 import '../screens/task_detail_screen.dart';
 import '../screens/manager_profile_screen.dart';
@@ -27,81 +28,85 @@ class ManagerTasksTab extends StatelessWidget {
         label: const Text('Create Task', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
       ),
       body: SafeArea(
-        child: Column(
-          children: [
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(colors: [_emerald, _mint], begin: Alignment.topLeft, end: Alignment.bottomRight),
-                borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
-              ),
-              child: Row(
-                children: [
-                  const Expanded(
-                    child: Text('Task Assignment',
-                        style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                  ),
-                  GestureDetector(
-                    onTap: () => Get.to(() => const ManagerProfileScreen(),
-                        transition: Transition.rightToLeft),
-                    child: Container(
-                      width: 38, height: 38,
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
-                        shape: BoxShape.circle,
-                      ),
-                      child: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 20),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Obx(() {
-                final selected = controller.selectedTab.value;
-                return Row(
-                  children: List.generate(controller.tabLabels.length, (i) {
-                    final isSel = selected == i;
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => controller.selectedTab.value = i,
-                        child: Column(
-                          children: [
-                            Text(controller.tabLabels[i],
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  color: isSel ? _emerald : Colors.grey[400],
-                                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
-                                )),
-                            const SizedBox(height: 6),
-                            Container(height: 2, margin: const EdgeInsets.symmetric(horizontal: 16), color: isSel ? _emerald : Colors.transparent),
-                          ],
-                        ),
-                      ),
-                    );
-                  }),
-                );
-              }),
-            ),
-
-            Expanded(
-              child: Obx(() {
-                final tab = controller.selectedTab.value;
-                return IndexedStack(
-                  index: tab,
+        // CHANGED — the whole page (header, tabs and the list) scrolls together.
+        // Before, each list scrolled on its own inside a fixed header.
+        child: AdminPageScroll(
+          child: Column(
+            children: [
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(colors: [_emerald, _mint], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                  borderRadius: BorderRadius.only(bottomLeft: Radius.circular(28), bottomRight: Radius.circular(28)),
+                ),
+                child: Row(
                   children: [
-                    _PendingAssignmentList(controller: controller),
-                    _ActiveTasksList(controller: controller),
-                    _DeliveredTasksList(controller: controller),
-                    _CompletedTasksList(controller: controller),
+                    const Expanded(
+                      child: Text('Task Assignment',
+                          style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                    ),
+                    GestureDetector(
+                      onTap: () => Get.to(() => const ManagerProfileScreen(),
+                          transition: Transition.rightToLeft),
+                      child: Container(
+                        width: 38, height: 38,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          shape: BoxShape.circle,
+                        ),
+                        child: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 20),
+                      ),
+                    ),
                   ],
-                );
+                ),
+              ),
+
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Obx(() {
+                  final selected = controller.selectedTab.value;
+                  return Row(
+                    children: List.generate(controller.tabLabels.length, (i) {
+                      final isSel = selected == i;
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => controller.selectedTab.value = i,
+                          child: Column(
+                            children: [
+                              Text(controller.tabLabels[i],
+                                  style: TextStyle(
+                                    fontSize: 12.5,
+                                    color: isSel ? _emerald : Colors.grey[400],
+                                    fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                                  )),
+                              const SizedBox(height: 6),
+                              Container(height: 2, margin: const EdgeInsets.symmetric(horizontal: 16), color: isSel ? _emerald : Colors.transparent),
+                            ],
+                          ),
+                        ),
+                      );
+                    }),
+                  );
+                }),
+              ),
+
+              // CHANGED — only the selected list is built (it needs unbounded
+              // height inside the page scroll, so IndexedStack could not be used).
+              Obx(() {
+                switch (controller.selectedTab.value) {
+                  case 1:
+                    return _ActiveTasksList(controller: controller);
+                  case 2:
+                    return _DeliveredTasksList(controller: controller);
+                  case 3:
+                    return _CompletedTasksList(controller: controller);
+                  default:
+                    return _PendingAssignmentList(controller: controller);
+                }
               }),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -120,10 +125,13 @@ class _PendingAssignmentList extends StatelessWidget {
       stream: controller.approvedDonationsStream,
       builder: (context, donationSnap) {
         if (donationSnap.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: _emerald));
+          return const _Loading();
         }
         if (donationSnap.hasError) {
-          return Center(child: Text('Error: ${donationSnap.error}', style: const TextStyle(color: Colors.red, fontSize: 12)));
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(child: Text('Error: ${donationSnap.error}', style: const TextStyle(color: Colors.red, fontSize: 12))),
+          );
         }
 
         final allApproved = donationSnap.data?.docs ?? [];
@@ -145,6 +153,8 @@ class _PendingAssignmentList extends StatelessWidget {
             }
 
             return ListView.builder(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
               padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
               itemCount: unassigned.length,
               itemBuilder: (context, index) {
@@ -214,16 +224,22 @@ class _ActiveTasksList extends StatelessWidget {
       stream: controller.allTasksStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: _emerald));
+          return const _Loading();
         }
         if (snapshot.hasError) {
-          return Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red, fontSize: 12)));
+          return Padding(
+            padding: const EdgeInsets.all(24),
+            child: Center(child: Text('Error: ${snapshot.error}', style: const TextStyle(color: Colors.red, fontSize: 12))),
+          );
         }
 
         final allDocs = snapshot.data?.docs ?? [];
         final docs = allDocs.where((d) {
           final status = (d.data() as Map)['status'];
-          return status == 'assigned' || status == 'accepted';
+          // CHANGED — 'rejected' tasks are listed too, so the manager can
+          // reassign them. Before, a task the volunteer rejected disappeared
+          // from every list and its donation was stuck.
+          return status == 'assigned' || status == 'accepted' || status == 'rejected';
         }).toList()
           ..sort((a, b) {
             final aTs = (a.data() as Map)['assignedAt'] as Timestamp?;
@@ -237,6 +253,8 @@ class _ActiveTasksList extends StatelessWidget {
         }
 
         return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
           itemCount: docs.length,
           itemBuilder: (context, index) {
@@ -245,6 +263,8 @@ class _ActiveTasksList extends StatelessWidget {
             final bool timedOut = controller.isTimedOut(data);
             final Duration? remaining = controller.timeRemaining(data);
             final String status = data['status'] ?? 'assigned';
+            final bool isRejected = status == 'rejected'; // NEW
+            final bool needsReassign = timedOut || isRejected; // NEW
             final String title = data['title'] ?? data['itemName'] ?? 'Task';
             final String category = data['taskCategory'] ?? '';
 
@@ -254,7 +274,7 @@ class _ActiveTasksList extends StatelessWidget {
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(18),
-                border: timedOut ? Border.all(color: const Color(0xFFC0392B), width: 1.5) : null,
+                border: needsReassign ? Border.all(color: const Color(0xFFC0392B), width: 1.5) : null,
                 boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 10, offset: const Offset(0, 3))],
               ),
               child: Column(
@@ -283,14 +303,18 @@ class _ActiveTasksList extends StatelessWidget {
                       Container(
                         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
                         decoration: BoxDecoration(
-                          color: status == 'accepted' ? const Color(0xFFE6F5EE) : const Color(0xFFFFF3E4),
+                          color: isRejected
+                              ? const Color(0xFFFCEBEA)
+                              : status == 'accepted' ? const Color(0xFFE6F5EE) : const Color(0xFFFFF3E4),
                           borderRadius: BorderRadius.circular(20),
                         ),
                         child: Text(
-                          status == 'accepted' ? 'Accepted' : 'Awaiting Response',
+                          isRejected ? 'Rejected' : status == 'accepted' ? 'Accepted' : 'Awaiting Response',
                           style: TextStyle(
                             fontSize: 10.5,
-                            color: status == 'accepted' ? _emerald : const Color(0xFFDB7C26),
+                            color: isRejected
+                                ? const Color(0xFFC0392B)
+                                : status == 'accepted' ? _emerald : const Color(0xFFDB7C26),
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -298,6 +322,29 @@ class _ActiveTasksList extends StatelessWidget {
                     ],
                   ),
                   const SizedBox(height: 10),
+
+                  // NEW — why the volunteer rejected it
+                  if (isRejected) ...[
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.all(10),
+                      decoration: BoxDecoration(color: const Color(0xFFFCEBEA), borderRadius: BorderRadius.circular(10)),
+                      child: Row(
+                        children: [
+                          const Icon(Icons.cancel_rounded, color: Color(0xFFC0392B), size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Rejected by the volunteer'
+                                  '${(data['rejectionReason'] ?? '').toString().isNotEmpty ? ': ${data['rejectionReason']}' : ''}. Reassign to another volunteer.',
+                              style: const TextStyle(fontSize: 11.5, color: Color(0xFFC0392B)),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                  ],
 
                   if (status == 'assigned') ...[
                     if (timedOut)
@@ -330,7 +377,7 @@ class _ActiveTasksList extends StatelessWidget {
 
                   Row(
                     children: [
-                      if (timedOut && data['donationId'] != null && data['donationId'].toString().isNotEmpty)
+                      if (needsReassign && data['donationId'] != null && data['donationId'].toString().isNotEmpty)
                         Expanded(
                           child: ElevatedButton.icon(
                             onPressed: () => Get.to(
@@ -370,7 +417,9 @@ class _ActiveTasksList extends StatelessWidget {
                               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
                             ),
                             child: Text(
-                              status == 'accepted' ? 'Waiting for delivery' : 'Waiting for volunteer',
+                              isRejected
+                                  ? 'Rejected by volunteer'
+                                  : status == 'accepted' ? 'Waiting for delivery' : 'Waiting for volunteer',
                               style: const TextStyle(fontSize: 12),
                             ),
                           ),
@@ -399,7 +448,7 @@ class _DeliveredTasksList extends StatelessWidget {
       stream: controller.allTasksStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: _emerald));
+          return const _Loading();
         }
         final allDocs = snapshot.data?.docs ?? [];
         final docs = allDocs.where((d) => (d.data() as Map)['status'] == 'delivered').toList()
@@ -415,6 +464,8 @@ class _DeliveredTasksList extends StatelessWidget {
         }
 
         return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
           itemCount: docs.length,
           itemBuilder: (context, index) {
@@ -471,7 +522,7 @@ class _CompletedTasksList extends StatelessWidget {
       stream: controller.allTasksStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(child: CircularProgressIndicator(color: _emerald));
+          return const _Loading();
         }
         final allDocs = snapshot.data?.docs ?? [];
         final docs = allDocs.where((d) => (d.data() as Map)['status'] == 'completed').toList()
@@ -487,6 +538,8 @@ class _CompletedTasksList extends StatelessWidget {
         }
 
         return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 12, 16, 90),
           itemCount: docs.length,
           itemBuilder: (context, index) {
@@ -527,6 +580,19 @@ class _CompletedTasksList extends StatelessWidget {
   }
 }
 
+// NEW — loading indicator that works inside the page scroll (unbounded height)
+class _Loading extends StatelessWidget {
+  const _Loading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.symmetric(vertical: 60),
+      child: Center(child: CircularProgressIndicator(color: Color(0xFF0F6E4F))),
+    );
+  }
+}
+
 class _EmptyState extends StatelessWidget {
   final IconData icon;
   final String text;
@@ -534,14 +600,18 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, size: 56, color: Colors.grey[300]),
-          const SizedBox(height: 12),
-          Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[500])),
-        ],
+    // CHANGED — vertical padding so it sits nicely inside the page scroll
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 60),
+      child: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Icon(icon, size: 56, color: Colors.grey[300]),
+            const SizedBox(height: 12),
+            Text(text, style: TextStyle(fontSize: 14, color: Colors.grey[500])),
+          ],
+        ),
       ),
     );
   }

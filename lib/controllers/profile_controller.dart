@@ -61,7 +61,11 @@ class ProfileController extends GetxController {
       if (doc.exists) {
         adminData.value = doc.data() as Map<String, dynamic>;
         nameController.text = adminData['name'] ?? '';
-        phoneController.text = adminData['phone'] ?? '';
+        // FIXED (Bug 6) — read either field; expose as 'phone' (what the screen reads)
+        final String savedPhone =
+        (adminData['mobileNumber'] ?? adminData['phone'] ?? '').toString();
+        if (savedPhone.isNotEmpty) adminData['phone'] = savedPhone;
+        phoneController.text = savedPhone;
       }
     } catch (e) {
       Get.snackbar(
@@ -99,6 +103,7 @@ class ProfileController extends GetxController {
       await _db.collection('users').doc(uid).update({
         'name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
+        'mobileNumber': phoneController.text.trim(), // FIXED (Bug 6) — keep both fields in sync
         'updatedAt': FieldValue.serverTimestamp(),
       });
 
@@ -163,10 +168,11 @@ class ProfileController extends GetxController {
       return;
     }
 
-    if (newPasswordController.text.trim().length < 6) {
+    // CHANGED — minimum password length is now 8 (was 6)
+    if (newPasswordController.text.trim().length < 8) {
       Get.snackbar(
         'Weak Password',
-        'Password must be at least 6 characters.',
+        'Password must be at least 8 characters.',
         snackPosition: SnackPosition.BOTTOM,
         backgroundColor: Colors.red[50],
         colorText: Colors.red[700],

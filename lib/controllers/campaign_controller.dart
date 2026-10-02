@@ -87,8 +87,12 @@ class CampaignController extends GetxController {
   void _listenForCampaignRaisedAmounts() {
     _donationsSubscription = _db
         .collection('donations')
-        .snapshots()
+        .snapshots(includeMetadataChanges: true) // FIXED (Bug 10) — so the cache -> server transition also raises an event
         .listen((snapshot) async {
+      // FIXED (Bug 10) — never recompute totals from data that is only in the local
+      // cache or still has unacknowledged local writes. On mobile the first snapshot
+      // can come from a partial cache and used to WRITE a too-small total to Firestore.
+      if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) return;
       try {
         await _syncCampaignRaisedAmounts(
           snapshot.docs,
@@ -99,7 +103,40 @@ class CampaignController extends GetxController {
     });
   }
 
+  // FIXED (Bug 10) — this listener used to start a new async sync for every donations
+  // change without waiting for the previous one. Two overlapping runs could finish out
+  // of order, so an OLDER snapshot's total could overwrite a newer, correct one and
+  // stay wrong until the next donation change. Now only one sync runs at a time, and
+  // while it runs only the LATEST snapshot is remembered and processed afterwards.
+  bool _raisedSyncRunning = false;
+  List<QueryDocumentSnapshot>? _pendingRaisedSyncDocs;
+
   Future<void> _syncCampaignRaisedAmounts(
+      List<QueryDocumentSnapshot> donations,
+      ) async {
+    if (_raisedSyncRunning) {
+      _pendingRaisedSyncDocs = donations;
+      return;
+    }
+    _raisedSyncRunning = true;
+    try {
+      List<QueryDocumentSnapshot>? next = donations;
+      while (next != null) {
+        _pendingRaisedSyncDocs = null;
+        try {
+          await _doSyncCampaignRaisedAmounts(next);
+        } catch (_) {
+          // Same as before: a failed sync must never crash the Campaign UI.
+        }
+        next = _pendingRaisedSyncDocs;
+      }
+    } finally {
+      _raisedSyncRunning = false;
+    }
+  }
+
+  // The original sync body — unchanged, only renamed so the wrapper above can call it.
+  Future<void> _doSyncCampaignRaisedAmounts(
       List<QueryDocumentSnapshot> donations,
       ) async {
     final campaignSnapshot =

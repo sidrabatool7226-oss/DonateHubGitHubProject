@@ -454,6 +454,7 @@ class AdminDonationDetailsScreen
     }
 
     add(data['paymentProofUrl']);
+    add(data['screenshotUrl']); // NEW
     add(data['receiptImageUrl']);
     add(data['itemImageUrl']);
 
@@ -468,6 +469,9 @@ class AdminDonationDetailsScreen
     return result;
   }
 
+  // CHANGED — screenshots were forced into a fixed 210px box with BoxFit.cover,
+  // which cropped tall payment screenshots. Now the full image is shown
+  // (BoxFit.contain, natural aspect ratio) and tapping opens a zoomable viewer.
   Widget _imagesSection(
       List<String> urls,
       ) {
@@ -494,28 +498,111 @@ class AdminDonationDetailsScreen
                 (url) => Padding(
               padding:
               const EdgeInsets.only(bottom: 12),
-              child: ClipRRect(
-                borderRadius:
-                BorderRadius.circular(12),
-                child: Image.network(
-                  url,
-                  width: double.infinity,
-                  height: 210,
-                  fit: BoxFit.cover,
-                  errorBuilder: (_, __, ___) =>
-                      Container(
-                        height: 110,
-                        alignment: Alignment.center,
+              child: Builder(
+                builder: (context) => MouseRegion(
+                  cursor: SystemMouseCursors.click,
+                  child: GestureDetector(
+                    onTap: () => _openImage(context, url),
+                    child: ClipRRect(
+                      borderRadius:
+                      BorderRadius.circular(12),
+                      child: Container(
+                        width: double.infinity,
                         color: Colors.grey[100],
-                        child: const Text(
-                          'Image could not be loaded',
+                        constraints: const BoxConstraints(
+                          minHeight: 110,
+                          maxHeight: 560,
+                        ),
+                        child: Image.network(
+                          url,
+                          width: double.infinity,
+                          fit: BoxFit.contain,
+                          filterQuality: FilterQuality.high,
+                          loadingBuilder: (context, child, progress) {
+                            if (progress == null) return child;
+                            return SizedBox(
+                              height: 160,
+                              child: Center(
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: _green,
+                                  value: progress.expectedTotalBytes == null
+                                      ? null
+                                      : progress.cumulativeBytesLoaded /
+                                      progress.expectedTotalBytes!,
+                                ),
+                              ),
+                            );
+                          },
+                          errorBuilder: (_, __, ___) =>
+                              Container(
+                                height: 110,
+                                alignment: Alignment.center,
+                                color: Colors.grey[100],
+                                child: const Text(
+                                  'Image could not be loaded',
+                                ),
+                              ),
                         ),
                       ),
+                    ),
+                  ),
                 ),
               ),
             ),
           ),
         ],
+      ),
+    );
+  }
+
+  // NEW — full-screen, pinch/scroll zoomable viewer
+  void _openImage(BuildContext context, String url) {
+    showDialog(
+      context: context,
+      builder: (dialogContext) => Dialog(
+        backgroundColor: Colors.black,
+        insetPadding: const EdgeInsets.all(12),
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: InteractiveViewer(
+                minScale: 0.5,
+                maxScale: 5,
+                child: Center(
+                  child: Image.network(
+                    url,
+                    fit: BoxFit.contain,
+                    filterQuality: FilterQuality.high,
+                    loadingBuilder: (context, child, progress) {
+                      if (progress == null) return child;
+                      return const Center(
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      );
+                    },
+                    errorBuilder: (_, __, ___) => const Center(
+                      child: Text(
+                        'Image could not be loaded',
+                        style: TextStyle(color: Colors.white),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ),
+            Positioned(
+              top: 4,
+              right: 4,
+              child: IconButton(
+                icon: const Icon(Icons.close_rounded, color: Colors.white),
+                onPressed: () => Navigator.pop(dialogContext),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

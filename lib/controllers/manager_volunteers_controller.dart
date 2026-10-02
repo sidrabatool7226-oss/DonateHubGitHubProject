@@ -38,13 +38,19 @@ class ManagerVolunteersController extends GetxController {
 
   List<QueryDocumentSnapshot> filterBySearch(
       List<QueryDocumentSnapshot> docs) {
-    if (searchQuery.value.trim().isEmpty) return docs;
-    final q = searchQuery.value.toLowerCase();
+    final q = searchQuery.value.trim().toLowerCase();
+    if (q.isEmpty) return docs;
+    // CHANGED — every word typed must match name, email, phone or category
+    final terms = q.split(RegExp(r'\s+'));
     return docs.where((doc) {
       final data = doc.data() as Map<String, dynamic>;
-      final name = (data['name'] ?? '').toString().toLowerCase();
-      final email = (data['email'] ?? '').toString().toLowerCase();
-      return name.contains(q) || email.contains(q);
+      final text = [
+        (data['name'] ?? '').toString(),
+        (data['email'] ?? '').toString(),
+        (data['mobileNumber'] ?? data['phone'] ?? '').toString(),
+        ((data['categories'] as List?) ?? const []).join(' '),
+      ].join(' ').toLowerCase();
+      return terms.every((t) => text.contains(t));
     }).toList();
   }
 

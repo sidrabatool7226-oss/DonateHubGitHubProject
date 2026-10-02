@@ -38,9 +38,13 @@ class AdminDonationsListScreen extends StatelessWidget {
         return status == 'pending';
 
       case AdminDonationsListMode.approvedAndCompleted:
-        return status == 'approved' ||
-            status == 'completed' ||
-            status == 'complete';
+      // FIXED (Bug 4) — donations that moved past 'approved' (pickup_assigned,
+      // in_transit, received...) used to disappear from this list.
+        return const [
+          'approved', 'pickup_assigned', 'in_transit', 'awaiting_physical',
+          'pending_pickup', 'volunteer_assigned', 'picked_up', 'received',
+          'completed', 'complete',
+        ].contains(status);
     }
   }
 

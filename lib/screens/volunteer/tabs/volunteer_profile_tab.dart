@@ -55,7 +55,7 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
             snapshot.data?.data() as Map<String, dynamic>?;
 
             final name = data?['name'] ?? 'Volunteer';
-            final phone = data?['mobileNumber'] ?? ''; // FIXED — was 'phone', a field signup never writes
+            final phone = data?['mobileNumber'] ?? data?['phone'] ?? ''; // FIXED (Bug 6) — form saves 'phone', signup saves 'mobileNumber'
             final cnic = data?['cnic'] ?? '';
             final stage = data?['verificationStage'] ?? 'Pending';
             final categories =
@@ -661,6 +661,7 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
           .update({
         'name': _nameController.text.trim(),
         'mobileNumber': _phoneController.text.trim(), // FIXED — was 'phone'
+        'phone': _phoneController.text.trim(), // FIXED (Bug 6) — Manager/Admin volunteer screens read 'phone'
         'updatedAt': FieldValue.serverTimestamp(),
       });
 

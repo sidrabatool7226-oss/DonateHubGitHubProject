@@ -338,6 +338,33 @@ class _VolunteerRegistrationFormScreenState
         'createdAt': FieldValue.serverTimestamp(),
       }, SetOptions(merge: true));
 
+      // FIXED (Bug 5) — the 'new_volunteer_application' notification was handled by the
+      // app (icon, push routing, notification screen) but never created anywhere, so
+      // managers were never told a new volunteer applied. Same format as the existing
+      // 'new_donation_submitted' fan-out in FirestoreService.saveDonation.
+      try {
+        final String applicantName = _nameCtrl.text.trim().isEmpty
+            ? 'A volunteer'
+            : _nameCtrl.text.trim();
+        final managersSnap = await FirebaseFirestore.instance
+            .collection('users')
+            .where('role', isEqualTo: 'manager')
+            .get();
+        for (final manager in managersSnap.docs) {
+          await FirebaseFirestore.instance.collection('notifications').add({
+            'toUserId': manager.id,
+            'title': '🙋 New Volunteer Application',
+            'message': '$applicantName has submitted a volunteer application and is waiting for review.',
+            'type': 'new_volunteer_application',
+            'entityId': uid,
+            'isRead': false,
+            'createdAt': FieldValue.serverTimestamp(),
+          });
+        }
+      } catch (_) {
+        // A notification problem must never block or fail the application itself.
+      }
+
       setState(() => _isSubmitting = false);
 
       if (!mounted) return;

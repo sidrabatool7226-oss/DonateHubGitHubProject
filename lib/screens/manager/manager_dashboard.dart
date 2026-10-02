@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
+import '../../controllers/manager_tasks_controller.dart';
 import 'tabs/manager_home_tab.dart';
 import 'tabs/manager_volunteers_tab.dart';
 import 'tabs/manager_donations_tab.dart';
@@ -18,11 +20,23 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
   static const Color _teal = Color(0xFF0F6E4F);
 
   late final List<Widget> _tabs = [
-    ManagerHomeTab(onGoToProfile: () => setState(() => _currentIndex = 4)),
+    ManagerHomeTab(
+      onGoToProfile: () => setState(() => _currentIndex = 4),
+      onGoToActiveTasks: () {
+        // open Tasks tab on its "Active" section
+        Get.put(ManagerTasksController()).selectedTab.value = 1;
+        setState(() => _currentIndex = 3);
+      },
+      onGoToCompletedTasks: () {
+        // NEW — open Tasks tab on its "Completed" section
+        Get.put(ManagerTasksController()).selectedTab.value = 3;
+        setState(() => _currentIndex = 3);
+      },
+    ),
     const ManagerVolunteersTab(),
     const ManagerDonationsTab(),
     const ManagerTasksTab(),
-    const ManagerProfileTab(),
+    ManagerProfileTab(onBack: () => setState(() => _currentIndex = 0)),
   ];
 
   @override

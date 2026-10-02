@@ -11,8 +11,10 @@ class ManagerProfileController extends GetxController {
   var isSaving = false.obs;
   var managerData = <String, dynamic>{}.obs;
 
+  // CHANGED — now saved in Firestore (users/{uid}.pushNotifications) and
+  // respected by the notification backend. The "Email Alerts" toggle was
+  // removed: no emails are ever sent to managers, so it controlled nothing.
   var pushNotifications = true.obs;
-  var emailAlerts = true.obs;
 
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
@@ -43,9 +45,36 @@ class ManagerProfileController extends GetxController {
     if (doc.exists) {
       managerData.value = doc.data() as Map<String, dynamic>;
       nameController.text = managerData['name'] ?? '';
-      phoneController.text = managerData['phone'] ?? '';
+      // FIXED (Bug 6) — admin-created managers store 'mobileNumber', not 'phone',
+      // so their own profile showed no phone. Read either; expose it as 'phone'
+      // because that is the key the profile screen already reads.
+      final String savedPhone =
+      (managerData['mobileNumber'] ?? managerData['phone'] ?? '').toString();
+      if (savedPhone.isNotEmpty) managerData['phone'] = savedPhone;
+      phoneController.text = savedPhone;
+
+      // NEW — push preference (missing field = enabled, the default)
+      pushNotifications.value = managerData['pushNotifications'] != false;
     }
     isLoading.value = false;
+  }
+
+  // NEW — turn push notifications on/off for this account. The backend skips
+  // sending push to users who have it switched off; the in-app Notifications
+  // list keeps working either way.
+  Future<void> setPushNotifications(bool value) async {
+    final bool previous = pushNotifications.value;
+    pushNotifications.value = value;
+    try {
+      final uid = _auth.currentUser?.uid ?? '';
+      await _db.collection('users').doc(uid).update({'pushNotifications': value});
+      managerData['pushNotifications'] = value;
+    } catch (e) {
+      pushNotifications.value = previous; // could not save — put the switch back
+      Get.snackbar('Error', 'Could not update notification setting.',
+          backgroundColor: Colors.red[50], colorText: Colors.red[700],
+          snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+    }
   }
 
   Future<void> updateProfile() async {
@@ -55,12 +84,23 @@ class ManagerProfileController extends GetxController {
           snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
       return;
     }
+
+    // NEW — phone is optional, but if entered it must be exactly 11 digits
+    final String phone = phoneController.text.trim();
+    if (phone.isNotEmpty && !RegExp(r'^\d{11}$').hasMatch(phone)) {
+      Get.snackbar('Invalid Phone', 'Phone number must be exactly 11 digits (e.g. 03001234567).',
+          backgroundColor: Colors.red[50], colorText: Colors.red[700],
+          snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+      return;
+    }
+
     isSaving.value = true;
     try {
       final uid = _auth.currentUser?.uid ?? '';
       await _db.collection('users').doc(uid).update({
         'name': nameController.text.trim(),
         'phone': phoneController.text.trim(),
+        'mobileNumber': phoneController.text.trim(), // FIXED (Bug 6) — keep both fields in sync
         'updatedAt': FieldValue.serverTimestamp(),
       });
       await _auth.currentUser?.updateDisplayName(nameController.text.trim());
@@ -94,8 +134,9 @@ class ManagerProfileController extends GetxController {
           snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
       return;
     }
-    if (newPasswordController.text.trim().length < 6) {
-      Get.snackbar('Weak Password', 'Minimum 6 characters required',
+    // CHANGED — minimum password length is now 8 (was 6), same as Admin
+    if (newPasswordController.text.trim().length < 8) {
+      Get.snackbar('Weak Password', 'Minimum 8 characters required',
           backgroundColor: Colors.red[50], colorText: Colors.red[700],
           snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
       return;

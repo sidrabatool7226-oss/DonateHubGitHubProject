@@ -158,28 +158,36 @@ class ManagerVolunteersTab extends StatelessWidget {
                     );
                   }
                   final allDocs = snapshot.data?.docs ?? [];
-                  final docs = controller.filterBySearch(allDocs);
 
-                  if (docs.isEmpty) {
-                    return _EmptyState(
-                      label: controller.tabLabels[controller
-                          .selectedTab.value],
-                    );
-                  }
+                  // CHANGED — search is read inside its own Obx. Before, it was read
+                  // inside the StreamBuilder callback (outside GetX tracking), so
+                  // typing in the search bar never rebuilt the list.
+                  return Obx(() {
+                    final query = controller.searchQuery.value; // explicit read
+                    final docs = controller.filterBySearch(allDocs);
 
-                  return ListView.builder(
-                    padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
-                    itemCount: docs.length,
-                    itemBuilder: (context, index) {
-                      final doc = docs[index];
-                      final data = doc.data() as Map<String, dynamic>;
-                      return _VolunteerCard(
-                        docId: doc.id,
-                        data: data,
-                        controller: controller,
+                    if (docs.isEmpty) {
+                      return _EmptyState(
+                        label: query.trim().isNotEmpty
+                            ? 'matching'
+                            : controller.tabLabels[controller.selectedTab.value],
                       );
-                    },
-                  );
+                    }
+
+                    return ListView.builder(
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      itemCount: docs.length,
+                      itemBuilder: (context, index) {
+                        final doc = docs[index];
+                        final data = doc.data() as Map<String, dynamic>;
+                        return _VolunteerCard(
+                          docId: doc.id,
+                          data: data,
+                          controller: controller,
+                        );
+                      },
+                    );
+                  });
                 },
               )),
             ),

@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // NEW — input formatters for the phone field
 import 'package:get/get.dart';
 import '../../../controllers/manager_profile_controller.dart';
 import '../../admin/screens/shared/notifications_screen.dart';
 import 'rewards_overview_screen.dart';
-import '../../shared/donors_list_screen.dart';
 class ManagerProfileScreen extends StatelessWidget {
-  const ManagerProfileScreen({super.key});
+  final VoidCallback? onBack; // NEW: used when profile is shown as a dashboard tab
+  const ManagerProfileScreen({super.key, this.onBack});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -46,7 +47,7 @@ class ManagerProfileScreen extends StatelessWidget {
                       Row(
                         children: [
                           GestureDetector(
-                            onTap: () => Get.back(),
+                            onTap: onBack ?? () => Get.back(),
                             child: Container(
                               width: 36, height: 36,
                               decoration: BoxDecoration(
@@ -137,12 +138,7 @@ class ManagerProfileScreen extends StatelessWidget {
                         color: const Color(0xFF2563EB),
                         onTap: () => Get.to(() => const NotificationsScreen(accentColor: _emerald)),
                       ),
-                      _ActionCard(
-                        icon: Icons.volunteer_activism_rounded, label: 'Donor Rewards',
-                        subtitle: 'View donor reward points and badges',
-                        color: const Color(0xFFDB7C26),
-                        onTap: () => Get.to(() => const DonorsListScreen(accentColor: _emerald), transition: Transition.rightToLeft),
-                      ),
+                      // CHANGED — "Donor Rewards" card removed (Rewards & Recognition below covers it)
                       const SizedBox(height: 10),
                       const SizedBox(height: 10),
                       const SizedBox(height: 10),
@@ -153,18 +149,15 @@ class ManagerProfileScreen extends StatelessWidget {
                         ),
                         child: Column(
                           children: [
+                            // CHANGED — saved to Firestore and respected by the notification
+                            // backend. The "Email Alerts" switch was removed: no emails are
+                            // sent to managers, so it never did anything.
                             Obx(() => _ToggleTile(
                               icon: Icons.notifications_outlined,
                               label: 'Push Notifications',
+                              subtitle: 'New donations, task updates and volunteer alerts on your phone',
                               value: controller.pushNotifications.value,
-                              onChanged: (v) => controller.pushNotifications.value = v,
-                            )),
-                            Divider(height: 1, color: Colors.grey[100]),
-                            Obx(() => _ToggleTile(
-                              icon: Icons.email_outlined,
-                              label: 'Email Alerts',
-                              value: controller.emailAlerts.value,
-                              onChanged: (v) => controller.emailAlerts.value = v,
+                              onChanged: controller.setPushNotifications,
                             )),
                           ],
                         ),
@@ -242,7 +235,18 @@ class ManagerProfileScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _SheetField(controller: controller.nameController, label: 'Full Name *', icon: Icons.person_outline),
             const SizedBox(height: 12),
-            _SheetField(controller: controller.phoneController, label: 'Phone Number', icon: Icons.phone_outlined, keyboardType: TextInputType.phone),
+            // CHANGED — digits only, stops at 11 digits (validated again on save)
+            _SheetField(
+              controller: controller.phoneController,
+              label: 'Phone Number',
+              icon: Icons.phone_outlined,
+              keyboardType: TextInputType.phone,
+              hint: '03001234567',
+              inputFormatters: [
+                FilteringTextInputFormatter.digitsOnly,
+                LengthLimitingTextInputFormatter(11),
+              ],
+            ),
             const SizedBox(height: 20),
             Obx(() => SizedBox(
               width: double.infinity, height: 48,
@@ -278,7 +282,7 @@ class ManagerProfileScreen extends StatelessWidget {
             const SizedBox(height: 16),
             _SheetField(controller: controller.currentPasswordController, label: 'Current Password *', icon: Icons.lock_outline, isPassword: true),
             const SizedBox(height: 12),
-            _SheetField(controller: controller.newPasswordController, label: 'New Password *', icon: Icons.lock_reset_outlined, isPassword: true),
+            _SheetField(controller: controller.newPasswordController, label: 'New Password *', icon: Icons.lock_reset_outlined, isPassword: true, hint: 'Min 8 characters'),
             const SizedBox(height: 12),
             _SheetField(controller: controller.confirmPasswordController, label: 'Confirm New Password *', icon: Icons.check_circle_outline, isPassword: true),
             const SizedBox(height: 20),
@@ -367,7 +371,8 @@ class _ActionCard extends StatelessWidget {
 
 class _ToggleTile extends StatelessWidget {
   final IconData icon; final String label; final bool value; final ValueChanged<bool> onChanged;
-  const _ToggleTile({required this.icon, required this.label, required this.value, required this.onChanged});
+  final String? subtitle; // NEW — short explanation of what the switch controls
+  const _ToggleTile({required this.icon, required this.label, required this.value, required this.onChanged, this.subtitle});
   static const Color _emerald = Color(0xFF0F6E4F);
   @override
   Widget build(BuildContext context) {
@@ -375,7 +380,16 @@ class _ToggleTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(children: [
         Icon(icon, size: 18, color: _emerald), const SizedBox(width: 12),
-        Expanded(child: Text(label, style: const TextStyle(fontSize: 13.5))),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(label, style: const TextStyle(fontSize: 13.5)),
+              if (subtitle != null)
+                Text(subtitle!, style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+            ],
+          ),
+        ),
         Switch(value: value, onChanged: onChanged, activeColor: _emerald),
       ]),
     );
@@ -385,7 +399,9 @@ class _ToggleTile extends StatelessWidget {
 class _SheetField extends StatefulWidget {
   final TextEditingController controller; final String label; final IconData icon;
   final bool isPassword; final TextInputType keyboardType;
-  const _SheetField({required this.controller, required this.label, required this.icon, this.isPassword = false, this.keyboardType = TextInputType.text});
+  final String? hint; // NEW
+  final List<TextInputFormatter>? inputFormatters; // NEW
+  const _SheetField({required this.controller, required this.label, required this.icon, this.isPassword = false, this.keyboardType = TextInputType.text, this.hint, this.inputFormatters});
   @override
   State<_SheetField> createState() => _SheetFieldState();
 }
@@ -399,8 +415,11 @@ class _SheetFieldState extends State<_SheetField> {
       const SizedBox(height: 6),
       TextField(
         controller: widget.controller, obscureText: widget.isPassword && _obscure, keyboardType: widget.keyboardType,
+        inputFormatters: widget.inputFormatters,
         style: const TextStyle(fontSize: 13),
         decoration: InputDecoration(
+          hintText: widget.hint,
+          hintStyle: TextStyle(fontSize: 13, color: Colors.grey[400]),
           prefixIcon: Icon(widget.icon, size: 18, color: Colors.grey[500]),
           suffixIcon: widget.isPassword
               ? IconButton(icon: Icon(_obscure ? Icons.visibility_off_outlined : Icons.visibility_outlined, size: 18, color: Colors.grey[400]),

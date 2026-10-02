@@ -14,7 +14,9 @@ import '../screens/general_fund_screen.dart'; // NEW
 
 class ManagerHomeTab extends StatelessWidget {
   final VoidCallback? onGoToProfile; // NEW
-  const ManagerHomeTab({super.key, this.onGoToProfile});
+  final VoidCallback? onGoToActiveTasks; // NEW
+  final VoidCallback? onGoToCompletedTasks; // NEW — opens Tasks tab on its "Completed" section
+  const ManagerHomeTab({super.key, this.onGoToProfile, this.onGoToActiveTasks, this.onGoToCompletedTasks});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -27,28 +29,32 @@ class ManagerHomeTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            _Header(controller: controller, onGoToProfile: onGoToProfile),
-            Expanded(
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
+        // CHANGED — the WHOLE page scrolls (header, cards and recent activity
+        // together). Before, only the Recent Activity box scrolled on its own.
+        child: SingleChildScrollView(
+          child: Column(
+            children: [
+              _Header(controller: controller, onGoToProfile: onGoToProfile),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 24),
                 child: Column(
                   children: [
-                    _StatsGrid(controller: controller),
+                    _StatsGrid(
+                      controller: controller,
+                      onGoToActiveTasks: onGoToActiveTasks,
+                      onGoToCompletedTasks: onGoToCompletedTasks,
+                    ),
                     const SizedBox(height: 12),
                     _CampaignsButton(controller: controller),
                     const SizedBox(height: 12),
                     const _GeneralFundButton(), // NEW
                     const SizedBox(height: 12),
-                    Expanded(
-                      child: _RecentActivityCard(controller: controller),
-                    ),
+                    _RecentActivityCard(controller: controller),
                   ],
                 ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -151,63 +157,94 @@ class _Header extends StatelessWidget {
 
 class _StatsGrid extends StatelessWidget {
   final ManagerHomeController controller;
+  final VoidCallback? onGoToActiveTasks; // NEW
+  final VoidCallback? onGoToCompletedTasks; // NEW
 
-  const _StatsGrid({required this.controller});
+  const _StatsGrid({required this.controller, this.onGoToActiveTasks, this.onGoToCompletedTasks});
 
   @override
   Widget build(BuildContext context) {
+    // CHANGED — two fixed-height rows instead of a GridView with an aspect
+    // ratio. Every card now has the same fixed height and equal width, so the
+    // content can no longer overflow / get cut on narrow phones.
     return Obx(
-          () => GridView.count(
-        crossAxisCount: 2,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
-        childAspectRatio: 1.35,
-        shrinkWrap: true,
-        physics: const NeverScrollableScrollPhysics(),
+          () => Column(
         children: [
-          _StatCard(
-            icon: Icons.person_search_rounded,
-            label: 'Pending Volunteers',
-            value: '${controller.pendingVolunteers.value}',
-            color: const Color(0xFFDB7C26),
-            bg: const Color(0xFFFFF3E4),
-            onTap: () => Get.to(
-                  () => const ManagerVolunteersListScreen(),
-              transition: Transition.rightToLeft,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.person_search_rounded,
+                  label: 'Pending Volunteers',
+                  value: '${controller.pendingVolunteers.value}',
+                  color: const Color(0xFFDB7C26),
+                  bg: const Color(0xFFFFF3E4),
+                  onTap: () => Get.to(
+                        () => const ManagerVolunteersListScreen(),
+                    transition: Transition.rightToLeft,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.volunteer_activism_rounded,
+                  label: 'Pending Donations',
+                  value: '${controller.pendingDonations.value}',
+                  color: const Color(0xFFC0392B),
+                  bg: const Color(0xFFFCEBEA),
+                  onTap: () => Get.to(
+                        () => const ManagerDonationsListScreen(),
+                    transition: Transition.rightToLeft,
+                  ),
+                ),
+              ),
+            ],
           ),
-          _StatCard(
-            icon: Icons.volunteer_activism_rounded,
-            label: 'Pending Donations',
-            value: '${controller.pendingDonations.value}',
-            color: const Color(0xFFC0392B),
-            bg: const Color(0xFFFCEBEA),
-            onTap: () => Get.to(
-                  () => const ManagerDonationsListScreen(),
-              transition: Transition.rightToLeft,
-            ),
-          ),
-          _StatCard(
-            icon: Icons.assignment_rounded,
-            label: 'Active Tasks',
-            value: '${controller.activeTasks.value}',
-            color: const Color(0xFF0F6E4F),
-            bg: const Color(0xFFE6F5EE),
-            onTap: () => Get.to(
-                  () => const ManagerTasksTab(),
-              transition: Transition.rightToLeft,
-            ),
-          ),
-          _StatCard(
-            icon: Icons.check_circle_rounded,
-            label: 'Completed Today',
-            value: '${controller.completedToday.value}',
-            color: const Color(0xFF2FBF87),
-            bg: const Color(0xFFE6F9F1),
-            onTap: () => Get.to(
-                  () => const ManagerTasksTab(),
-              transition: Transition.rightToLeft,
-            ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.assignment_rounded,
+                  label: 'Active Tasks',
+                  value: '${controller.activeTasks.value}',
+                  color: const Color(0xFF0F6E4F),
+                  bg: const Color(0xFFE6F5EE),
+                  onTap: () {
+                    if (onGoToActiveTasks != null) {
+                      onGoToActiveTasks!();
+                    } else {
+                      Get.to(
+                            () => const ManagerTasksTab(),
+                        transition: Transition.rightToLeft,
+                      );
+                    }
+                  },
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: _StatCard(
+                  icon: Icons.check_circle_rounded,
+                  label: 'Completed Today',
+                  value: '${controller.completedToday.value}',
+                  color: const Color(0xFF2FBF87),
+                  bg: const Color(0xFFE6F9F1),
+                  onTap: () {
+                    // CHANGED — opens the Tasks tab on its "Completed" section
+                    if (onGoToCompletedTasks != null) {
+                      onGoToCompletedTasks!();
+                    } else {
+                      Get.to(
+                            () => const ManagerTasksTab(),
+                        transition: Transition.rightToLeft,
+                      );
+                    }
+                  },
+                ),
+              ),
+            ],
           ),
         ],
       ),
@@ -237,6 +274,7 @@ class _StatCard extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        height: 112, // CHANGED — fixed height, identical for all four cards
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: Colors.white,
@@ -251,7 +289,7 @@ class _StatCard extends StatelessWidget {
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
-          mainAxisSize: MainAxisSize.min,
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
             Container(
               width: 30,
@@ -267,12 +305,16 @@ class _StatCard extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            Text(
-              value,
-              style: const TextStyle(
-                fontSize: 19,
-                fontWeight: FontWeight.bold,
-                color: Color(0xFF14251E),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.bold,
+                  color: Color(0xFF14251E),
+                ),
               ),
             ),
             const SizedBox(height: 2),
@@ -342,21 +384,27 @@ class _RecentActivityCard extends StatelessWidget {
             ),
           ),
           const Divider(height: 1),
-          Expanded(
-            child: Obx(() {
-              if (controller.isLoading.value) {
-                return const Center(
+          // CHANGED — no Expanded / inner scrolling: the list takes the space it
+          // needs and the whole page scrolls instead.
+          Obx(() {
+            if (controller.isLoading.value) {
+              return const Padding(
+                padding: EdgeInsets.all(28),
+                child: Center(
                   child: CircularProgressIndicator(
                     color: _emerald,
                     strokeWidth: 2,
                   ),
-                );
-              }
+                ),
+              );
+            }
 
-              final items = controller.recentActivity;
+            final items = controller.recentActivity;
 
-              if (items.isEmpty) {
-                return Center(
+            if (items.isEmpty) {
+              return Padding(
+                padding: const EdgeInsets.all(28),
+                child: Center(
                   child: Text(
                     'No recent activity yet',
                     style: TextStyle(
@@ -364,70 +412,72 @@ class _RecentActivityCard extends StatelessWidget {
                       fontSize: 13,
                     ),
                   ),
-                );
-              }
-
-              return ListView.separated(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                itemCount: items.length,
-                separatorBuilder: (_, __) => const Divider(
-                  height: 1,
-                  indent: 58,
                 ),
-                itemBuilder: (context, index) {
-                  final item = Map<String, dynamic>.from(items[index]);
-
-                  final bool isFund = _isFund(item);
-                  final String status =
-                  (item['status'] ?? 'pending').toString();
-
-                  return GestureDetector(
-                    onTap: () {
-                      final docId = (item['id'] ?? '').toString();
-
-                      if (docId.isEmpty) return;
-
-                      if (isFund) {
-                        Get.to(
-                              () => FundDonationDetailScreen(
-                            docId: docId,
-                            data: item,
-                          ),
-                          transition: Transition.rightToLeft,
-                        );
-                      } else {
-                        Get.to(
-                              () => ResourceDonationDetailScreen(
-                            docId: docId,
-                            data: item,
-                          ),
-                          transition: Transition.rightToLeft,
-                        );
-                      }
-                    },
-                    child: _ActivityTile(
-                      icon: isFund
-                          ? Icons.payments_rounded
-                          : Icons.inventory_2_rounded,
-                      iconBg: isFund
-                          ? const Color(0xFFE6F5EE)
-                          : const Color(0xFFFFF3E4),
-                      iconColor: isFund
-                          ? const Color(0xFF0F6E4F)
-                          : const Color(0xFFDB7C26),
-                      title: isFund
-                          ? 'Fund donation — Rs. ${item['verifiedAmount'] ?? item['amount'] ?? 0}'
-                          : 'Resource — ${item['itemName'] ?? 'Item'}',
-                      subtitle:
-                      '${item['userEmail'] ?? item['donorEmail'] ?? item['donorName'] ?? 'Donor'}',
-                      time: controller.timeAgo(item['createdAt']),
-                      status: status,
-                    ),
-                  );
-                },
               );
-            }),
-          ),
+            }
+
+            return ListView.separated(
+              shrinkWrap: true,
+              physics: const NeverScrollableScrollPhysics(),
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              itemCount: items.length,
+              separatorBuilder: (_, __) => const Divider(
+                height: 1,
+                indent: 58,
+              ),
+              itemBuilder: (context, index) {
+                final item = Map<String, dynamic>.from(items[index]);
+
+                final bool isFund = _isFund(item);
+                final String status =
+                (item['status'] ?? 'pending').toString();
+
+                return GestureDetector(
+                  onTap: () {
+                    final docId = (item['id'] ?? '').toString();
+
+                    if (docId.isEmpty) return;
+
+                    if (isFund) {
+                      Get.to(
+                            () => FundDonationDetailScreen(
+                          docId: docId,
+                          data: item,
+                        ),
+                        transition: Transition.rightToLeft,
+                      );
+                    } else {
+                      Get.to(
+                            () => ResourceDonationDetailScreen(
+                          docId: docId,
+                          data: item,
+                        ),
+                        transition: Transition.rightToLeft,
+                      );
+                    }
+                  },
+                  child: _ActivityTile(
+                    icon: isFund
+                        ? Icons.payments_rounded
+                        : Icons.inventory_2_rounded,
+                    iconBg: isFund
+                        ? const Color(0xFFE6F5EE)
+                        : const Color(0xFFFFF3E4),
+                    iconColor: isFund
+                        ? const Color(0xFF0F6E4F)
+                        : const Color(0xFFDB7C26),
+                    title: isFund
+                        ? 'Fund donation — Rs. ${item['verifiedAmount'] ?? item['amount'] ?? 0}'
+                        : 'Resource — ${item['itemName'] ?? 'Item'}',
+                    subtitle:
+                    '${item['userEmail'] ?? item['donorEmail'] ?? item['donorName'] ?? 'Donor'}',
+                    time: controller.timeAgo(item['createdAt']),
+                    status: status,
+                  ),
+                );
+              },
+            );
+          }),
         ],
       ),
     );
@@ -658,6 +708,8 @@ class _CampaignsButton extends StatelessWidget {
                           color: _emerald,
                           fontWeight: FontWeight.w600,
                         ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),
@@ -759,6 +811,8 @@ class _GeneralFundButton extends StatelessWidget {
                       Text(
                         'Rs. ${remaining.toStringAsFixed(0)} unallocated',
                         style: const TextStyle(fontSize: 10.5, color: _emerald, fontWeight: FontWeight.w600),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
                       ),
                     ],
                   ),

@@ -29,7 +29,12 @@ class AdminHomeTab extends StatelessWidget {
   // so the number on the card is always the same number you see when you tap it.
   bool _isApprovedOrCompletedDonation(Map<String, dynamic> data) {
     final status = (data['status'] ?? '').toString().trim().toLowerCase();
-    return status == 'approved' || status == 'completed' || status == 'complete';
+    // FIXED (Bug 4) — same statuses as AdminDonationsListScreen, so card and list still match.
+    return const [
+      'approved', 'pickup_assigned', 'in_transit', 'awaiting_physical',
+      'pending_pickup', 'volunteer_assigned', 'picked_up', 'received',
+      'completed', 'complete',
+    ].contains(status);
   }
 
   @override

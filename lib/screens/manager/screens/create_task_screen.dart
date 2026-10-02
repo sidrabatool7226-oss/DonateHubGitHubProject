@@ -90,6 +90,43 @@ class CreateTaskScreen extends StatelessWidget {
             ])),
             const SizedBox(height: 14),
 
+            // NEW — Blood Donation only: which blood group is needed (optional)
+            Obx(() {
+              if (controller.selectedCategory.value != 'Blood Donation') return const SizedBox();
+              final selected = controller.selectedBloodGroup.value;
+              return Column(children: [
+                _Card(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                  const Text('Blood Group Needed', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                  const SizedBox(height: 4),
+                  Text('Optional — shows compatible donors only, exact group first',
+                      style: TextStyle(fontSize: 11, color: Colors.grey[500])),
+                  const SizedBox(height: 12),
+                  Wrap(
+                    spacing: 8, runSpacing: 8,
+                    children: ['Any', ...ManagerCreateTaskController.bloodGroups].map((g) {
+                      final isSel = g == 'Any' ? selected == null : selected == g;
+                      return GestureDetector(
+                        onTap: () => controller.selectedBloodGroup.value = g == 'Any' ? null : g,
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                          decoration: BoxDecoration(
+                            color: isSel ? const Color(0xFFC0392B) : const Color(0xFFF4FAF7),
+                            borderRadius: BorderRadius.circular(20),
+                            border: Border.all(color: isSel ? const Color(0xFFC0392B) : Colors.grey.shade300),
+                          ),
+                          child: Text(g, style: TextStyle(
+                            fontSize: 12, color: isSel ? Colors.white : Colors.grey[700],
+                            fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
+                          )),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ])),
+                const SizedBox(height: 14),
+              ]);
+            }),
+
             Obx(() {
               if (controller.selectedCategory.value == null) return const SizedBox();
               if (controller.isLoadingVolunteers.value) {
@@ -98,23 +135,40 @@ class CreateTaskScreen extends StatelessWidget {
                   child: Center(child: CircularProgressIndicator(color: _emerald)),
                 );
               }
-              final volunteers = controller.matchingVolunteers;
+              // CHANGED — shows the filtered / sorted list (online first, available
+              // on the task date, fewer open tasks) instead of the raw list.
+              final bool noRoleMatch = controller.matchingVolunteers.isEmpty;
+              final bool onlyOnline = controller.onlineOnly.value;
+              final volunteers = controller.visibleVolunteers;
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Row(children: [
                     const Icon(Icons.people_outline_rounded, size: 15, color: _emerald),
                     const SizedBox(width: 6),
-                    Text('Matching Volunteers (${volunteers.length})',
-                        style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                    Expanded(
+                      child: Text('Matching Volunteers (${volunteers.length})',
+                          style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+                    ),
+                    Text('Online only', style: TextStyle(fontSize: 11.5, color: Colors.grey[600])),
+                    Transform.scale(
+                      scale: 0.75,
+                      child: Switch(
+                        value: onlyOnline,
+                        activeTrackColor: _emerald,
+                        onChanged: (v) => controller.onlineOnly.value = v,
+                      ),
+                    ),
                   ]),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: 4),
                   if (volunteers.isEmpty)
                     _Card(child: Row(children: [
                       Icon(Icons.person_off_outlined, color: Colors.grey[400], size: 20),
                       const SizedBox(width: 10),
                       Expanded(child: Text(
-                        'No verified volunteers have selected "${controller.selectedCategory.value}" as their role.',
+                        noRoleMatch
+                            ? 'No verified volunteers have selected "${controller.selectedCategory.value}" as their role.'
+                            : 'No volunteers match the current filters (online only / blood group).',
                         style: TextStyle(fontSize: 12, color: Colors.grey[500]),
                       )),
                     ]))
@@ -171,7 +225,27 @@ class _VolunteerMatchCard extends StatelessWidget {
             ]),
             const SizedBox(width: 12),
             Expanded(child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              Text(name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+              Row(children: [
+                Flexible(child: Text(name, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold), overflow: TextOverflow.ellipsis)),
+                // NEW — blood group (Blood Donation tasks only)
+                if (volunteer['_showBlood'] == true && (volunteer['bloodGroup'] ?? '').toString().isNotEmpty) ...[
+                  const SizedBox(width: 8),
+                  Container(
+                    padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                    decoration: BoxDecoration(
+                      color: volunteer['_exactBlood'] == true ? const Color(0xFFC0392B) : const Color(0xFFFCEBEA),
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      volunteer['bloodGroup'].toString(),
+                      style: TextStyle(
+                        fontSize: 10, fontWeight: FontWeight.w700,
+                        color: volunteer['_exactBlood'] == true ? Colors.white : const Color(0xFFC0392B),
+                      ),
+                    ),
+                  ),
+                ],
+              ]),
               Wrap(spacing: 4, children: categories.take(3).map((c) => Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 margin: const EdgeInsets.only(top: 3),
@@ -194,6 +268,37 @@ class _VolunteerMatchCard extends StatelessWidget {
             )),
           ]),
           const SizedBox(height: 4),
+          // NEW — schedule on the task's weekday (today until a date is picked) + open task count
+          Row(children: [
+            Icon(Icons.schedule_rounded, size: 12,
+                color: volunteer['_availableOnDate'] == true ? _emerald : Colors.grey[400]),
+            const SizedBox(width: 5),
+            Expanded(child: Text(
+              (volunteer['_scheduleText'] ?? '').toString(),
+              style: TextStyle(
+                fontSize: 11,
+                color: volunteer['_availableOnDate'] == true ? _emerald : Colors.grey[500],
+                fontWeight: volunteer['_availableOnDate'] == true ? FontWeight.w600 : FontWeight.normal,
+              ),
+            )),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+              decoration: BoxDecoration(
+                color: (volunteer['_activeTasks'] ?? 0) == 0 ? const Color(0xFFE6F5EE) : const Color(0xFFFFF3E4),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Text(
+                (volunteer['_activeTasks'] ?? 0) == 0
+                    ? 'No active tasks'
+                    : '${volunteer['_activeTasks']} active task${volunteer['_activeTasks'] == 1 ? '' : 's'}',
+                style: TextStyle(
+                  fontSize: 10, fontWeight: FontWeight.w600,
+                  color: (volunteer['_activeTasks'] ?? 0) == 0 ? _emerald : const Color(0xFFDB7C26),
+                ),
+              ),
+            ),
+          ]),
+          const SizedBox(height: 4),
           Row(children: [
             Icon(Icons.work_history_outlined, size: 12, color: Colors.grey[400]),
             const SizedBox(width: 5),
@@ -211,10 +316,21 @@ class _VolunteerMatchCard extends StatelessWidget {
                 bool ok = await controller.createAndAssignTask(
                   volunteerId: volunteer['uid'],
                   volunteerName: name,
+                  showMessage: false,
                 );
-                if (ok) Get.back();
+                // CHANGED — close the screen first, then show the message
+                // (Get.back() would otherwise close the snackbar, not the screen).
+                if (ok) {
+                  Get.back();
+                  Get.snackbar('Task Assigned', 'Task assigned to $name',
+                      backgroundColor: Colors.green[50], colorText: Colors.green[700],
+                      snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+                }
               },
-              icon: const Icon(Icons.check_rounded, size: 16),
+              // CHANGED — only the pressed volunteer's button shows the spinner
+              icon: controller.isSaving.value && controller.assigningVolunteerId.value == volunteer['uid']
+                  ? const SizedBox(width: 15, height: 15, child: CircularProgressIndicator(color: Colors.white, strokeWidth: 2))
+                  : const Icon(Icons.check_rounded, size: 16),
               label: const Text('Assign This Task', style: TextStyle(fontSize: 12.5)),
               style: ElevatedButton.styleFrom(
                 backgroundColor: _emerald, foregroundColor: Colors.white,

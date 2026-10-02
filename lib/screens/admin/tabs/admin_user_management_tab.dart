@@ -2,8 +2,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/user_management_controller.dart';
+import '../../../controllers/admin_nav_controller.dart';
 import '../screens/admin_donors_list_screen.dart' show AdminDonorDetailsScreen; // NEW
 import '../screens/admin_volunteers_list_screen.dart' show VolunteerCompleteDetailsScreen; // NEW
+import '../../../widgets/admin_page_kit.dart';
 
 class AdminUserManagementTab extends StatelessWidget {
   const AdminUserManagementTab({super.key});
@@ -20,6 +22,12 @@ class AdminUserManagementTab extends StatelessWidget {
       appBar: AppBar(
         backgroundColor: Colors.white,
         elevation: 0.5,
+        // NEW — back arrow to Home tab
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded,
+              color: Color(0xFF1A1A1A), size: 18),
+          onPressed: () => Get.find<AdminNavController>().changeTab(0),
+        ),
         title: const Text(
           'User Management',
           style: TextStyle(
@@ -49,35 +57,44 @@ class AdminUserManagementTab extends StatelessWidget {
         ],
       ),
 
-      body: Column(
-        children: [
-          // ── Stats Row ──────────────────────────────────────────────
-          _StatsRow(controller: controller),
+      body: AdminPageScroll(
+        child: Column(
+          children: [
+            // ── Stats Row ──────────────────────────────────────────────
+            _StatsRow(controller: controller),
 
-          // ── Filter Tabs ────────────────────────────────────────────
-          _FilterTabs(controller: controller),
+            // ── Filter Tabs ────────────────────────────────────────────
+            _FilterTabs(controller: controller),
 
-          // ── List ──────────────────────────────────────────────────
-          Expanded(
-            child: Obx(() => StreamBuilder<QuerySnapshot>(
+            // ── List ──────────────────────────────────────────────────
+            Obx(() => StreamBuilder<QuerySnapshot>(
               stream: controller.usersStream,
               builder: (context, snapshot) {
                 if (snapshot.connectionState ==
                     ConnectionState.waiting) {
-                  return const Center(
-                    child: CircularProgressIndicator(
-                        color: _green),
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 60),
+                    child: Center(
+                      child: CircularProgressIndicator(
+                          color: _green),
+                    ),
                   );
                 }
 
                 final docs = snapshot.data?.docs ?? [];
                 if (docs.isEmpty) {
-                  return _EmptyState(
-                    filter: controller.selectedFilter.value,
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: _EmptyState(
+                      filter: controller.selectedFilter.value,
+                    ),
                   );
                 }
 
+                // CHANGED — list no longer scrolls on its own; the whole page does.
                 return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(
                       16, 8, 16, 16),
                   itemCount: docs.length,
@@ -94,8 +111,8 @@ class AdminUserManagementTab extends StatelessWidget {
                 );
               },
             )),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

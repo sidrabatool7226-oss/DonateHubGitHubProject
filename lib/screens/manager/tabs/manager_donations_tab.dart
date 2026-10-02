@@ -490,6 +490,42 @@ class _DonationCard extends StatelessWidget {
                       color: Colors.grey[400],
                     ),
                   ),
+
+                  // NEW — approved resource donation that still needs a
+                  // volunteer; tap the card and use "Assign Volunteer".
+                  if (!isFund &&
+                      (data['status'] ?? '').toString() == 'approved') ...[
+                    const SizedBox(height: 6),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFFF3E4),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            Icons.person_add_alt_1_rounded,
+                            size: 11,
+                            color: Color(0xFFDB7C26),
+                          ),
+                          SizedBox(width: 4),
+                          Text(
+                            'Needs volunteer',
+                            style: TextStyle(
+                              fontSize: 10.5,
+                              color: Color(0xFFDB7C26),
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),

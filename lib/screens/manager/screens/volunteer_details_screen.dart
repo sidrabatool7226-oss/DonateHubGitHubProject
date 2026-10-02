@@ -159,25 +159,71 @@ class VolunteerDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // ── Weekly Availability ───────────────────────────
-                  _SectionCard(
-                    title: 'Weekly Availability',
-                    icon: Icons.calendar_month_rounded,
-                    child: _AvailabilityScheduleView(
-                      scheduleData: data['availabilitySchedule'],
+                  // ── Availability (verified volunteers only) ───────
+                  // CHANGED — pending / scheduled / rejected volunteers cannot take
+                  // tasks yet, so their availability is not shown. For verified
+                  // volunteers it also shows whether they are online right now.
+                  if (isVerified) ...[
+                    _SectionCard(
+                      title: 'Weekly Availability',
+                      icon: Icons.calendar_month_rounded,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 10),
+                            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                            decoration: BoxDecoration(
+                              color: data['isOnline'] == true
+                                  ? const Color(0xFFE6F5EE)
+                                  : const Color(0xFFF1F3F2),
+                              borderRadius: BorderRadius.circular(20),
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Container(
+                                  width: 8,
+                                  height: 8,
+                                  decoration: BoxDecoration(
+                                    color: data['isOnline'] == true
+                                        ? const Color(0xFF2FBF87)
+                                        : Colors.grey[400],
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                const SizedBox(width: 6),
+                                Text(
+                                  data['isOnline'] == true ? 'Online now' : 'Offline',
+                                  style: TextStyle(
+                                    fontSize: 11.5,
+                                    fontWeight: FontWeight.w600,
+                                    color: data['isOnline'] == true
+                                        ? const Color(0xFF0F6E4F)
+                                        : Colors.grey[600],
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          _AvailabilityScheduleView(
+                            scheduleData: data['availabilitySchedule'],
+                          ),
+                        ],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
 
-                  // ── Specific Dates ────────────────────────────────
-                  _SectionCard(
-                    title: 'Specific Dates',
-                    icon: Icons.event_available_rounded,
-                    child: _SpecialDatesView(
-                      specialData: data['specialAvailability'],
+                    // ── Specific Dates ──────────────────────────────
+                    _SectionCard(
+                      title: 'Specific Dates',
+                      icon: Icons.event_available_rounded,
+                      child: _SpecialDatesView(
+                        specialData: data['specialAvailability'],
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 14),
+                    const SizedBox(height: 14),
+                  ],
 
                   // ── Past Experience ────────────────────────────────
                   _SectionCard(

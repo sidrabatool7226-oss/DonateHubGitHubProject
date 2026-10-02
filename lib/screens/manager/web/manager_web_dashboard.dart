@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:firebase_auth/firebase_auth.dart'; // FIXED (Bug 8) — current manager's uid for the unread badge
 import '../../../services/auth_service.dart';
+import '../../../controllers/manager_tasks_controller.dart';
 import '../../../widgets/web_dashboard_shell.dart';
 import '../tabs/manager_home_tab.dart';
 import '../tabs/manager_volunteers_tab.dart';
@@ -9,6 +11,7 @@ import '../tabs/manager_tasks_tab.dart';
 import '../tabs/manager_profile_tab.dart';
 import 'manager_home_tab_web.dart';
 import '../screens/manager_profile_screen.dart';
+import '../../admin/screens/shared/notifications_screen.dart'; // FIXED (Bug 8) — same screen the mobile bell and Admin web already use
 class ManagerWebDashboard extends StatefulWidget {
   const ManagerWebDashboard({super.key});
 
@@ -30,12 +33,23 @@ class _ManagerWebDashboardState extends State<ManagerWebDashboard> {
     WebNavItem(Icons.person_rounded, 'Profile'),
   ];
 
-  static const List<Widget> _pages = [
-    ManagerHomeTabWeb(),
-    ManagerVolunteersTab(),
-    ManagerDonationsTab(),
-    ManagerTasksTab(),
-    ManagerProfileTab(),
+  late final List<Widget> _pages = [
+    ManagerHomeTabWeb(
+      onGoToActiveTasks: () {
+        // open Tasks page on its "Active" section
+        Get.put(ManagerTasksController()).selectedTab.value = 1;
+        setState(() => _currentIndex = 3);
+      },
+      onGoToCompletedTasks: () {
+        // NEW — open Tasks page on its "Completed" section
+        Get.put(ManagerTasksController()).selectedTab.value = 3;
+        setState(() => _currentIndex = 3);
+      },
+    ),
+    const ManagerVolunteersTab(),
+    const ManagerDonationsTab(),
+    const ManagerTasksTab(),
+    ManagerProfileTab(onBack: () => setState(() => _currentIndex = 0)),
   ];
 
   @override
@@ -50,6 +64,8 @@ class _ManagerWebDashboardState extends State<ManagerWebDashboard> {
       onSelect: (i) => setState(() => _currentIndex = i),
       pages: _pages,
       onProfileTap: () => Get.to(() => const ManagerProfileScreen()),
+      onNotificationTap: () => Get.to(() => const NotificationsScreen(accentColor: _teal)), // FIXED (Bug 8) — manager web had no bell at all
+      currentUserId: FirebaseAuth.instance.currentUser?.uid, // FIXED (Bug 8)
       onLogout: () async {
         await AuthService().signOut();
         Get.offAllNamed('/login');

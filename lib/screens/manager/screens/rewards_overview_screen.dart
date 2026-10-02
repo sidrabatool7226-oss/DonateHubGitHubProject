@@ -6,7 +6,10 @@ import '../../../controllers/rewards_overview_controller.dart';
 import 'volunteer_details_screen.dart';
 
 class RewardsOverviewScreen extends StatelessWidget {
-  const RewardsOverviewScreen({super.key});
+  // NEW — when true (Admin profile), each volunteer row also shows their
+  // reward points and the list is ranked by points. Manager keeps the old view.
+  final bool showVolunteerPoints;
+  const RewardsOverviewScreen({super.key, this.showVolunteerPoints = false});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -66,7 +69,7 @@ class RewardsOverviewScreen extends StatelessWidget {
             Expanded(
               child: Obx(() => controller.selectedTab.value == 0
                   ? _DonorsRewardsList(controller: controller)
-                  : _VolunteersRewardsList(controller: controller)),
+                  : _VolunteersRewardsList(controller: controller, showPoints: showVolunteerPoints)),
             ),
           ],
         ),
@@ -231,7 +234,13 @@ class _DonorsRewardsList extends StatelessWidget {
 // ==========================================================================
 class _VolunteersRewardsList extends StatelessWidget {
   final RewardsOverviewController controller;
-  const _VolunteersRewardsList({required this.controller});
+  final bool showPoints; // NEW
+  const _VolunteersRewardsList({required this.controller, this.showPoints = false});
+
+  int _points(QueryDocumentSnapshot d) {
+    final v = (d.data() as Map<String, dynamic>)['rewardPoints'];
+    return v is num ? v.toInt() : 0;
+  }
 
   static const Color _emerald = Color(0xFF0F6E4F);
 
@@ -243,7 +252,10 @@ class _VolunteersRewardsList extends StatelessWidget {
         if (snapshot.connectionState == ConnectionState.waiting) {
           return const Center(child: CircularProgressIndicator(color: _emerald));
         }
-        final docs = snapshot.data?.docs ?? [];
+        final docs = List<QueryDocumentSnapshot>.of(snapshot.data?.docs ?? []);
+        if (showPoints) {
+          docs.sort((a, b) => _points(b).compareTo(_points(a))); // highest points first
+        }
         if (docs.isEmpty) {
           return Center(child: Text('No verified volunteers yet', style: TextStyle(color: Colors.grey[500])));
         }
@@ -255,6 +267,7 @@ class _VolunteersRewardsList extends StatelessWidget {
             final doc = docs[index];
             final data = doc.data() as Map<String, dynamic>;
             final name = data['name'] ?? 'Volunteer';
+            final int points = _points(doc); // NEW
 
             return FutureBuilder<int>(
               future: controller.getVolunteerTaskCount(doc.id),
@@ -325,6 +338,16 @@ class _VolunteersRewardsList extends StatelessWidget {
                             ],
                           ),
                         ),
+                        if (showPoints) ...[
+                          Column(
+                            crossAxisAlignment: CrossAxisAlignment.end,
+                            children: [
+                              Text('$points', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFFDB7C26))),
+                              Text('points', style: TextStyle(fontSize: 9.5, color: Colors.grey[400])),
+                            ],
+                          ),
+                          const SizedBox(width: 14),
+                        ],
                         Column(
                           crossAxisAlignment: CrossAxisAlignment.end,
                           children: [

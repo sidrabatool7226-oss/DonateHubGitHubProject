@@ -518,7 +518,7 @@ class _DonationCard extends StatelessWidget {
                 (profile?['email'] ?? '').toString();
 
                 final phoneFromProfile =
-                (profile?['phone'] ?? profile?['contact'] ?? '')
+                (profile?['mobileNumber'] ?? profile?['phone'] ?? profile?['contact'] ?? '') // FIXED (Bug 6)
                     .toString();
 
                 final finalName = donorName.isNotEmpty

@@ -190,6 +190,29 @@ class ResourceDonationDetailScreen extends StatelessWidget {
 
             _statusCard(status),
 
+            // NEW — approved resource donation that still has no volunteer:
+            // the manager can assign one from right here (same screen the
+            // Approve button opens).
+            if (status == 'approved') ...[
+              const SizedBox(height: 18),
+              SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: _openAssignVolunteer,
+                  icon: const Icon(Icons.person_add_alt_1_rounded, size: 18),
+                  label: const Text('Assign Volunteer'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: _emerald,
+                    foregroundColor: Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(14),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+
             if (status == 'pending') ...[
               const SizedBox(height: 18),
               Row(
@@ -286,6 +309,24 @@ class ResourceDonationDetailScreen extends StatelessWidget {
           ],
         ),
       ),
+    );
+  }
+
+  // NEW — opens the volunteer picker for an already-approved donation.
+  // Get.off (not Get.to) so this detail page, whose data is a snapshot taken
+  // when it was opened, is not left behind showing a stale "Assign Volunteer"
+  // button after the task has been created.
+  void _openAssignVolunteer() {
+    if (!Get.isRegistered<ManagerTasksController>()) {
+      Get.put(ManagerTasksController());
+    }
+
+    Get.off(
+          () => AssignVolunteerScreen(
+        donationId: docId,
+        data: data,
+      ),
+      transition: Transition.rightToLeft,
     );
   }
 

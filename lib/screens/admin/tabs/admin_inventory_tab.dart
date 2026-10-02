@@ -18,6 +18,7 @@ import '../../manager/screens/fund_donation_detail_screen.dart';
 import '../../../controllers/admin_donations_controller.dart' show safeParseQty;
 import '../../../controllers/financial_summary_controller.dart';
 import '../../../widgets/picked_image_preview.dart';
+import '../../../widgets/admin_page_kit.dart';
 class AdminInventoryTab extends StatelessWidget {
   const AdminInventoryTab({super.key});
 
@@ -32,181 +33,183 @@ class AdminInventoryTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ─────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_green, _lightGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        child: AdminPageScroll(
+          child: Column(
+            children: [
+              // ── Header ─────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_green, _lightGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Text('Inventory Management',
-                                style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold)),
-                            Text('Manage donations, resources and fund verification',
-                                style: TextStyle(color: Colors.white70, fontSize: 11.5)),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => _showAddDonationSheet(context, controller),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.2),
-                            borderRadius: BorderRadius.circular(20),
-                            border: Border.all(color: Colors.white.withOpacity(0.4)),
-                          ),
-                          child: const Row(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const AdminBackButton(), // NEW — back to Home tab
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.add_rounded, color: Colors.white, size: 16),
-                              SizedBox(width: 4),
-                              Text('Add Donation', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                              Text('Inventory Management',
+                                  style: TextStyle(color: Colors.white, fontSize: 19, fontWeight: FontWeight.bold)),
+                              Text('Manage donations, resources and fund verification',
+                                  style: TextStyle(color: Colors.white70, fontSize: 11.5)),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-            ),
-            // ── Total Funds Card — NAYA ─────────────────────────────────────────
-            GetBuilder<FinancialSummaryController>(
-              init: FinancialSummaryController(),
-              builder: (fc) => Obx(() {
-                final total = fc.totalReceived.value;
-                return Container(
-                  margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    gradient: const LinearGradient(colors: [Color(0xFF1B6B3A), Color(0xFF2D8A52)]),
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Row(
-                    children: [
-                      Container(
-                        width: 44, height: 44,
-                        decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
-                        child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white),
-                      ),
-                      const SizedBox(width: 12),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          const Text('Total Funds', style: TextStyle(color: Colors.white70, fontSize: 11)),
-                          Text('Rs. ${total.toStringAsFixed(0)}',
-                              style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                        ],
-                      ),
-                    ],
-                  ),
-                );
-              }),
-            ),
-            // ── Summary Row ────────────────────────────────────────
-            Obx(() => Container(
-              color: Colors.white,
-              padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
-              child: Row(
-                children: [
-                  _SummaryChip(label: 'Total', value: controller.totalCount, color: _green, bg: const Color(0xFFE8F5E9)),
-                  const SizedBox(width: 8),
-                  _SummaryChip(label: 'Pending', value: controller.pendingCount, color: Colors.orange[700]!, bg: Colors.orange[50]!),
-                  const SizedBox(width: 8),
-                  _SummaryChip(label: 'Approved', value: controller.approvedCount, color: Colors.blue[700]!, bg: Colors.blue[50]!),
-                  const SizedBox(width: 8),
-                  _SummaryChip(label: 'Completed', value: controller.completedCount, color: _green, bg: const Color(0xFFE8F5E9)),
-                ],
-              ),
-            )),
-
-            // ── Type Filter Tabs (now includes 'Fund') ─────────────
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Obx(() {
-                final sel = controller.selectedTypeFilter.value; // explicit read for GetX
-                return SizedBox(
-                  height: 34,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: controller.typeFilters.map((f) {
-                        final isSel = sel == f;
-                        return GestureDetector(
-                          onTap: () => controller.selectedTypeFilter.value = f,
+                        GestureDetector(
+                          onTap: () => _showAddDonationSheet(context, controller),
                           child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSel ? _green : const Color(0xFFF4F6F8),
+                              color: Colors.white.withOpacity(0.2),
                               borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isSel ? _green : Colors.grey.shade300),
+                              border: Border.all(color: Colors.white.withOpacity(0.4)),
                             ),
-                            child: Text(f,
-                                style: TextStyle(fontSize: 12, color: isSel ? Colors.white : Colors.grey[700],
-                                    fontWeight: isSel ? FontWeight.w600 : FontWeight.normal)),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.add_rounded, color: Colors.white, size: 16),
+                                SizedBox(width: 4),
+                                Text('Add Donation', style: TextStyle(color: Colors.white, fontSize: 12.5, fontWeight: FontWeight.w600)),
+                              ],
+                            ),
                           ),
-                        );
-                      }).toList(),
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              }),
-            ),
-
-            // ── Category Filter Chips ───────────────────────────────
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.only(bottom: 10),
-              child: Obx(() {
-                final sel = controller.selectedCategoryFilter.value; // explicit read for GetX
-                return SizedBox(
-                  height: 32,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                  ],
+                ),
+              ),
+              // ── Total Funds Card — NAYA ─────────────────────────────────────────
+              GetBuilder<FinancialSummaryController>(
+                init: FinancialSummaryController(),
+                builder: (fc) => Obx(() {
+                  final total = fc.totalReceived.value;
+                  return Container(
+                    margin: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+                    padding: const EdgeInsets.all(16),
+                    decoration: BoxDecoration(
+                      gradient: const LinearGradient(colors: [Color(0xFF1B6B3A), Color(0xFF2D8A52)]),
+                      borderRadius: BorderRadius.circular(16),
+                    ),
                     child: Row(
-                      children: controller.filterCategories.map((cat) {
-                        final isSel = sel == cat;
-                        return GestureDetector(
-                          onTap: () => controller.selectedCategoryFilter.value = cat,
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
-                            decoration: BoxDecoration(
-                              color: isSel ? const Color(0xFFE8F5E9) : const Color(0xFFF4F6F8),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isSel ? _green : Colors.grey.shade300),
-                            ),
-                            child: Text(cat,
-                                style: TextStyle(fontSize: 11, color: isSel ? _green : Colors.grey[600],
-                                    fontWeight: isSel ? FontWeight.w600 : FontWeight.normal)),
-                          ),
-                        );
-                      }).toList(),
+                      children: [
+                        Container(
+                          width: 44, height: 44,
+                          decoration: BoxDecoration(color: Colors.white.withOpacity(0.2), borderRadius: BorderRadius.circular(12)),
+                          child: const Icon(Icons.account_balance_wallet_rounded, color: Colors.white),
+                        ),
+                        const SizedBox(width: 12),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text('Total Funds', style: TextStyle(color: Colors.white70, fontSize: 11)),
+                            Text('Rs. ${total.toStringAsFixed(0)}',
+                                style: const TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
+                          ],
+                        ),
+                      ],
                     ),
-                  ),
-                );
-              }),
-            ),
+                  );
+                }),
+              ),
+              // ── Summary Row ────────────────────────────────────────
+              Obx(() => Container(
+                color: Colors.white,
+                padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
+                child: Row(
+                  children: [
+                    _SummaryChip(label: 'Total', value: controller.totalCount, color: _green, bg: const Color(0xFFE8F5E9)),
+                    const SizedBox(width: 8),
+                    _SummaryChip(label: 'Pending', value: controller.pendingCount, color: Colors.orange[700]!, bg: Colors.orange[50]!),
+                    const SizedBox(width: 8),
+                    _SummaryChip(label: 'Approved', value: controller.approvedCount, color: Colors.blue[700]!, bg: Colors.blue[50]!),
+                    const SizedBox(width: 8),
+                    _SummaryChip(label: 'Completed', value: controller.completedCount, color: _green, bg: const Color(0xFFE8F5E9)),
+                  ],
+                ),
+              )),
 
-            // ── List ──────────────────────────────────────────────
-            Expanded(
-              child: Obx(() {
+              // ── Type Filter Tabs (now includes 'Fund') ─────────────
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Obx(() {
+                  final sel = controller.selectedTypeFilter.value; // explicit read for GetX
+                  return SizedBox(
+                    height: 34,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: controller.typeFilters.map((f) {
+                          final isSel = sel == f;
+                          return GestureDetector(
+                            onTap: () => controller.selectedTypeFilter.value = f,
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSel ? _green : const Color(0xFFF4F6F8),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: isSel ? _green : Colors.grey.shade300),
+                              ),
+                              child: Text(f,
+                                  style: TextStyle(fontSize: 12, color: isSel ? Colors.white : Colors.grey[700],
+                                      fontWeight: isSel ? FontWeight.w600 : FontWeight.normal)),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              // ── Category Filter Chips ───────────────────────────────
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Obx(() {
+                  final sel = controller.selectedCategoryFilter.value; // explicit read for GetX
+                  return SizedBox(
+                    height: 32,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: controller.filterCategories.map((cat) {
+                          final isSel = sel == cat;
+                          return GestureDetector(
+                            onTap: () => controller.selectedCategoryFilter.value = cat,
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+                              decoration: BoxDecoration(
+                                color: isSel ? const Color(0xFFE8F5E9) : const Color(0xFFF4F6F8),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: isSel ? _green : Colors.grey.shade300),
+                              ),
+                              child: Text(cat,
+                                  style: TextStyle(fontSize: 11, color: isSel ? _green : Colors.grey[600],
+                                      fontWeight: isSel ? FontWeight.w600 : FontWeight.normal)),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    ),
+                  );
+                }),
+              ),
+
+              // ── List ──────────────────────────────────────────────
+              Obx(() {
                 final loading = controller.isLoading.value;
                 final search = controller.searchQuery.value;
                 final typeF = controller.selectedTypeFilter.value;
@@ -214,23 +217,32 @@ class AdminInventoryTab extends StatelessWidget {
                 final statusF = controller.selectedStatusFilter.value;
 
                 if (loading) {
-                  return const Center(child: CircularProgressIndicator(color: _green));
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 60),
+                    child: Center(child: CircularProgressIndicator(color: _green)),
+                  );
                 }
 
                 final list = controller.filtered;
 
                 if (list.isEmpty) {
-                  return _EmptyState();
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 48),
+                    child: _EmptyState(),
+                  );
                 }
 
+                // CHANGED — list no longer scrolls on its own; the whole page does.
                 return ListView.builder(
+                  shrinkWrap: true,
+                  physics: const NeverScrollableScrollPhysics(),
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                   itemCount: list.length,
                   itemBuilder: (context, index) => _DonationCard(data: list[index], controller: controller),
                 );
               }),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

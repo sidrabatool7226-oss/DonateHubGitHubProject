@@ -1,8 +1,10 @@
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../controllers/volunteer_tasks_controller.dart';
 import '../../../widgets/task_pickup_map_section.dart'; // NEW — embedded pickup map
+import '../../../widgets/task_category_style.dart'; // NEW — role icon / wording
 
 class VolunteerTaskDetailScreen extends StatelessWidget {
   final String taskId;
@@ -10,7 +12,8 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
   const VolunteerTaskDetailScreen({super.key, required this.taskId, required this.data});
 
   static const Color _green = Color(0xFF1B6B3A);
-  static const Color _bg = Color(0xFFF4F6F8);
+  static const Color _lightGreen = Color(0xFF2D8A52);
+  static const Color _bg = Color(0xFFF2F7F4);
 
   Future<void> _openMaps(BuildContext context, String address) async {
     if (address.isEmpty) {
@@ -23,6 +26,17 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri, mode: LaunchMode.externalApplication);
     }
+  }
+
+  // NEW — "2h ago" style text for when the task was assigned
+  String _assignedAgo() {
+    final ts = data['assignedAt'];
+    if (ts is! Timestamp) return '';
+    final diff = DateTime.now().difference(ts.toDate());
+    if (diff.inDays >= 1) return 'Assigned ${diff.inDays}d ago';
+    if (diff.inHours >= 1) return 'Assigned ${diff.inHours}h ago';
+    if (diff.inMinutes >= 1) return 'Assigned ${diff.inMinutes}m ago';
+    return 'Assigned just now';
   }
 
   @override
@@ -45,6 +59,9 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
     final String instructions = data['instructions'] ?? '';
     final String assignedBy = data['assignedBy'] ?? '';
     final String? proofUrl = data['deliveryProofUrl'];
+    final String requiredBlood = (data['requiredBloodGroup'] ?? '').toString(); // NEW
+    final style = TaskCategoryStyle.of(category); // NEW
+    final String assignedAgo = _assignedAgo(); // NEW
 
     // FIXED: Navigate only shows for Resource Pickup tasks (always has an
     // address), OR for other categories when a genuine location was
@@ -57,6 +74,11 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
         backgroundColor: _green,
         foregroundColor: Colors.white,
         elevation: 0,
+        flexibleSpace: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(colors: [_green, _lightGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
+          ),
+        ),
         title: const Text('Task Details', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         leading: GestureDetector(onTap: () => Get.back(), child: const Icon(Icons.arrow_back_ios_rounded)),
       ),
@@ -65,6 +87,7 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
+            // ── Hero card ───────────────────────────────────────────
             _Card(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -72,43 +95,85 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
                   Row(
                     children: [
                       Container(
-                        width: 50, height: 50,
-                        decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(14)),
-                        child: Icon(
-                          category == 'Resource Pickup' ? Icons.inventory_2_rounded : Icons.volunteer_activism_rounded,
-                          color: _green, size: 24,
+                        width: 58, height: 58,
+                        decoration: BoxDecoration(
+                          gradient: const LinearGradient(colors: [_green, _lightGreen], begin: Alignment.topLeft, end: Alignment.bottomRight),
+                          borderRadius: BorderRadius.circular(18),
+                          boxShadow: [BoxShadow(color: _green.withOpacity(0.28), blurRadius: 12, offset: const Offset(0, 5))],
                         ),
+                        child: Icon(style.icon, color: Colors.white, size: 28),
                       ),
-                      const SizedBox(width: 12),
+                      const SizedBox(width: 14),
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(title, style: const TextStyle(fontSize: 15, fontWeight: FontWeight.bold)),
+                            Text(title, style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: Color(0xFF14251E))),
                             if (category.isNotEmpty)
                               Container(
-                                margin: const EdgeInsets.only(top: 4),
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                                margin: const EdgeInsets.only(top: 5),
+                                padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
                                 decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(8)),
-                                child: Text(category, style: const TextStyle(fontSize: 10.5, color: _green, fontWeight: FontWeight.w600)),
+                                child: Text(category, style: const TextStyle(fontSize: 10.5, color: _green, fontWeight: FontWeight.w700)),
                               ),
                           ],
                         ),
                       ),
                     ],
                   ),
+                  if (assignedAgo.isNotEmpty) ...[
+                    const SizedBox(height: 10),
+                    Row(children: [
+                      Icon(Icons.schedule_rounded, size: 13, color: Colors.grey[500]),
+                      const SizedBox(width: 5),
+                      Text(assignedAgo, style: TextStyle(fontSize: 11.5, color: Colors.grey[500])),
+                    ]),
+                  ],
                   if (description.isNotEmpty) ...[
                     const SizedBox(height: 12),
-                    Text(description, style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.4)),
+                    Text(description, style: TextStyle(fontSize: 13, color: Colors.grey[700], height: 1.45)),
+                  ],
+                  // NEW — blood donation: the blood group the manager asked for
+                  if (requiredBlood.isNotEmpty) ...[
+                    const SizedBox(height: 14),
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFFCEBEA),
+                        borderRadius: BorderRadius.circular(14),
+                        border: Border.all(color: const Color(0xFFC0392B).withOpacity(0.18)),
+                      ),
+                      child: Row(children: [
+                        const Icon(Icons.bloodtype_rounded, color: Color(0xFFC0392B), size: 22),
+                        const SizedBox(width: 10),
+                        const Expanded(child: Text('Blood group needed', style: TextStyle(fontSize: 12.5, color: Color(0xFFC0392B), fontWeight: FontWeight.w600))),
+                        Text(requiredBlood, style: const TextStyle(fontSize: 20, color: Color(0xFFC0392B), fontWeight: FontWeight.w900)),
+                      ]),
+                    ),
                   ],
                   if (quantity > 0) ...[
-                    const SizedBox(height: 8),
-                    Text('Quantity: $quantity', style: TextStyle(fontSize: 12, color: Colors.grey[500])),
+                    const SizedBox(height: 12),
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+                      decoration: BoxDecoration(color: const Color(0xFFF6FAF8), borderRadius: BorderRadius.circular(10)),
+                      child: Row(mainAxisSize: MainAxisSize.min, children: [
+                        const Icon(Icons.numbers_rounded, size: 14, color: _green),
+                        const SizedBox(width: 5),
+                        Text('Quantity: $quantity', style: TextStyle(fontSize: 12, color: Colors.grey[700], fontWeight: FontWeight.w600)),
+                      ]),
+                    ),
                   ],
                 ],
               ),
             ),
             const SizedBox(height: 14),
+
+            // ── Progress timeline (NEW) ─────────────────────────────
+            if (status != 'rejected') ...[
+              _Card(child: _StatusTimeline(status: status)),
+              const SizedBox(height: 14),
+            ],
 
             if (date.isNotEmpty || time.isNotEmpty) ...[
               _Card(
@@ -128,20 +193,41 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     if (donorName.isNotEmpty) ...[
-                      const Text('Contact Information', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                      const SizedBox(height: 10),
+                      const _SectionTitle(icon: Icons.contact_page_outlined, title: 'Contact Information'),
+                      const SizedBox(height: 12),
                       Row(children: [
-                        const Icon(Icons.person_outline, size: 15, color: _green),
-                        const SizedBox(width: 8),
-                        Text(donorName, style: const TextStyle(fontSize: 13)),
+                        _iconTile(Icons.person_outline),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(category == 'Resource Pickup' ? 'Donor' : 'Contact', style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                              Text(donorName, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
                       ]),
                     ],
                     if (location.isNotEmpty) ...[
-                      const SizedBox(height: 8),
+                      if (donorName.isEmpty) ...[
+                        _SectionTitle(icon: Icons.place_outlined, title: style.locationLabel),
+                        const SizedBox(height: 12),
+                      ] else
+                        const SizedBox(height: 12),
                       Row(children: [
-                        const Icon(Icons.location_on_outlined, size: 15, color: _green),
-                        const SizedBox(width: 8),
-                        Expanded(child: Text(location, style: const TextStyle(fontSize: 13))),
+                        _iconTile(Icons.location_on_outlined),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              if (donorName.isNotEmpty)
+                                Text(style.locationLabel, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+                              Text(location, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600)),
+                            ],
+                          ),
+                        ),
                       ]),
                     ],
                   ],
@@ -168,9 +254,9 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Special Instructions', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 8),
-                    Text(instructions, style: TextStyle(fontSize: 12.5, color: Colors.grey[700], height: 1.4)),
+                    const _SectionTitle(icon: Icons.lightbulb_outline_rounded, title: 'Special Instructions'),
+                    const SizedBox(height: 10),
+                    Text(instructions, style: TextStyle(fontSize: 12.5, color: Colors.grey[700], height: 1.45)),
                   ],
                 ),
               ),
@@ -200,7 +286,7 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('Completion Proof', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold)),
+                    const _SectionTitle(icon: Icons.verified_outlined, title: 'Completion Proof'),
                     const SizedBox(height: 10),
                     ClipRRect(
                       borderRadius: BorderRadius.circular(12),
@@ -217,7 +303,7 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
             if (status == 'delivered')
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: const Color(0xFFFFF3E4), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(color: const Color(0xFFFFF3E4), borderRadius: BorderRadius.circular(16)),
                 child: const Row(children: [
                   Icon(Icons.hourglass_top_rounded, color: Color(0xFFDB7C26)),
                   SizedBox(width: 10),
@@ -227,7 +313,7 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
             if (status == 'rejected')
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: const Color(0xFFFCEBEA), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(color: const Color(0xFFFCEBEA), borderRadius: BorderRadius.circular(16)),
                 child: const Row(children: [
                   Icon(Icons.cancel_rounded, color: Color(0xFFC0392B)),
                   SizedBox(width: 10),
@@ -237,7 +323,7 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
             if (status == 'completed')
               Container(
                 padding: const EdgeInsets.all(14),
-                decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(14)),
+                decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(16)),
                 child: const Row(children: [
                   Icon(Icons.check_circle_rounded, color: _green),
                   SizedBox(width: 10),
@@ -251,14 +337,111 @@ class VolunteerTaskDetailScreen extends StatelessWidget {
     );
   }
 
+  Widget _iconTile(IconData icon) {
+    return Container(
+      width: 36, height: 36,
+      decoration: BoxDecoration(color: const Color(0xFFE8F5E9), borderRadius: BorderRadius.circular(11)),
+      child: Icon(icon, size: 18, color: _green),
+    );
+  }
+
   Widget _detailRow(IconData icon, String label, String value) {
     return Row(children: [
-      Icon(icon, size: 14, color: _green),
-      const SizedBox(width: 6),
-      Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-        Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
-        Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w600)),
-      ]),
+      _iconTile(icon),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Text(label, style: TextStyle(fontSize: 10, color: Colors.grey[500])),
+          Text(value, style: const TextStyle(fontSize: 12.5, fontWeight: FontWeight.w700)),
+        ]),
+      ),
+    ]);
+  }
+}
+
+// ==========================================================================
+// NEW — progress timeline: Assigned → Accepted → Delivered → Completed
+// ==========================================================================
+class _StatusTimeline extends StatelessWidget {
+  final String status;
+  const _StatusTimeline({required this.status});
+
+  static const Color _green = Color(0xFF1B6B3A);
+  static const List<String> _labels = ['Assigned', 'Accepted', 'Delivered', 'Completed'];
+
+  int get _index {
+    switch (status) {
+      case 'accepted':
+        return 1;
+      case 'delivered':
+        return 2;
+      case 'completed':
+        return 3;
+      default:
+        return 0;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final int current = _index;
+    return Row(
+      children: List.generate(_labels.length, (i) {
+        final bool done = i < current;
+        final bool active = i == current;
+        final Color leftLine = i <= current ? _green : Colors.grey.shade300;
+        final Color rightLine = i < current ? _green : Colors.grey.shade300;
+        return Expanded(
+          child: Column(
+            children: [
+              Row(
+                children: [
+                  Expanded(child: Container(height: 2, color: i == 0 ? Colors.transparent : leftLine)),
+                  Container(
+                    width: 24, height: 24,
+                    decoration: BoxDecoration(
+                      color: done || active ? _green : Colors.white,
+                      shape: BoxShape.circle,
+                      border: Border.all(color: done || active ? _green : Colors.grey.shade300, width: 2),
+                      boxShadow: active ? [BoxShadow(color: _green.withOpacity(0.3), blurRadius: 8)] : null,
+                    ),
+                    child: done
+                        ? const Icon(Icons.check_rounded, size: 14, color: Colors.white)
+                        : active
+                        ? const Icon(Icons.circle, size: 8, color: Colors.white)
+                        : null,
+                  ),
+                  Expanded(child: Container(height: 2, color: i == _labels.length - 1 ? Colors.transparent : rightLine)),
+                ],
+              ),
+              const SizedBox(height: 6),
+              Text(
+                _labels[i],
+                style: TextStyle(
+                  fontSize: 10.5,
+                  fontWeight: active ? FontWeight.w800 : FontWeight.w500,
+                  color: done || active ? _green : Colors.grey[500],
+                ),
+              ),
+            ],
+          ),
+        );
+      }),
+    );
+  }
+}
+
+class _SectionTitle extends StatelessWidget {
+  final IconData icon;
+  final String title;
+  const _SectionTitle({required this.icon, required this.title});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(children: [
+      Icon(icon, size: 16, color: const Color(0xFF1B6B3A)),
+      const SizedBox(width: 7),
+      Text(title, style: const TextStyle(fontSize: 13.5, fontWeight: FontWeight.w800, color: Color(0xFF14251E))),
     ]);
   }
 }
@@ -346,33 +529,59 @@ class _NewTaskActions extends StatelessWidget {
   }
 }
 
-class _UploadProofSection extends StatelessWidget {
+// CHANGED — now a StatefulWidget only so a photo picked for a previous task is
+// cleared when this screen opens (the controller keeps one shared proofImage,
+// which could otherwise be submitted as proof for the wrong task).
+class _UploadProofSection extends StatefulWidget {
   final String taskId;
   final String assignedBy;
   final VolunteerTasksController controller;
   const _UploadProofSection({required this.taskId, required this.assignedBy, required this.controller});
 
+  @override
+  State<_UploadProofSection> createState() => _UploadProofSectionState();
+}
+
+class _UploadProofSectionState extends State<_UploadProofSection> {
   static const Color _green = Color(0xFF1B6B3A);
 
   @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (widget.controller.proofImage != null) widget.controller.clearProofImage();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final controller = widget.controller;
     return GetBuilder<VolunteerTasksController>(
       builder: (c) => Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Upload Completion Proof', style: TextStyle(fontSize: 13.5, fontWeight: FontWeight.bold)),
+          const _SectionTitle(icon: Icons.camera_alt_outlined, title: 'Upload Completion Proof'),
           const SizedBox(height: 10),
           GestureDetector(
             onTap: c.pickProofImage,
             child: Container(
-              height: 160, width: double.infinity,
-              decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16), border: Border.all(color: _green.withOpacity(0.3))),
+              height: 170, width: double.infinity,
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(18),
+                border: Border.all(color: _green.withOpacity(0.3)),
+                boxShadow: [BoxShadow(color: _green.withOpacity(0.06), blurRadius: 12, offset: const Offset(0, 5))],
+              ),
               child: c.proofImage != null
-                  ? ClipRRect(borderRadius: BorderRadius.circular(16), child: Image.file(c.proofImage!, fit: BoxFit.cover))
-                  : const Column(mainAxisAlignment: MainAxisAlignment.center, children: [
-                Icon(Icons.camera_alt_outlined, color: _green, size: 30),
-                SizedBox(height: 8),
-                Text('Take a photo as proof of completion', style: TextStyle(color: _green, fontSize: 12)),
+                  ? ClipRRect(borderRadius: BorderRadius.circular(18), child: Image.file(c.proofImage!, fit: BoxFit.cover))
+                  : Column(mainAxisAlignment: MainAxisAlignment.center, children: [
+                Container(
+                  width: 56, height: 56,
+                  decoration: const BoxDecoration(color: Color(0xFFE8F5E9), shape: BoxShape.circle),
+                  child: const Icon(Icons.camera_alt_outlined, color: _green, size: 26),
+                ),
+                const SizedBox(height: 10),
+                const Text('Take a photo as proof of completion', style: TextStyle(color: _green, fontSize: 12, fontWeight: FontWeight.w600)),
               ]),
             ),
           ),
@@ -381,7 +590,7 @@ class _UploadProofSection extends StatelessWidget {
             width: double.infinity, height: 50,
             child: Obx(() => ElevatedButton.icon(
               onPressed: controller.isSaving.value ? null : () async {
-                bool ok = await controller.uploadDeliveryProof(taskId, assignedBy);
+                bool ok = await controller.uploadDeliveryProof(widget.taskId, widget.assignedBy);
                 if (ok) Get.back();
               },
               icon: const Icon(Icons.upload_rounded),
@@ -404,8 +613,8 @@ class _Card extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity, padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(16),
-          boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.04), blurRadius: 8, offset: const Offset(0, 3))]),
+      decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(20),
+          boxShadow: [BoxShadow(color: const Color(0xFF1B6B3A).withOpacity(0.06), blurRadius: 14, offset: const Offset(0, 6))]),
       child: child,
     );
   }

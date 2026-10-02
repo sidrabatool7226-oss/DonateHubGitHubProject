@@ -131,3 +131,78 @@ db.collection('notifications')
       console.error('Firestore listener error:', error);
     }
   );
+
+// ── Task response-timeout reminder ──────────────────────────────────────
+// FIXED (Bug 7) — the app tells volunteers "Please respond within 1 hour" and the
+// Manager's Tasks tab draws a red border after 60 minutes, but nothing ever ACTED on
+// that deadline: a manager only noticed if they happened to open the tab.
+//
+// Every 5 minutes this looks at tasks still in status 'assigned' (same rule the app's
+// isTimedOut() uses: 60 minutes after 'assignedAt') and notifies the manager who
+// assigned the task ('assignedBy'). The notification goes into the normal
+// 'notifications' collection, so the listener above turns it into an FCM push and it
+// also shows in the in-app bell — no changes needed in the Flutter app.
+//
+// It deliberately does NOT reassign anything: the manager still decides.
+//   • Once per assignment — remembered in 'timeoutNotifiedFor' on the task. When a task
+//     is reassigned, 'assignedAt' changes, so the reminder re-arms for the new volunteer.
+//   • Tasks overdue by more than MAX_OVERDUE_MS are skipped, so the first run on old test
+//     data does not flood the manager with reminders for long-forgotten tasks.
+const TASK_TIMEOUT_MS = 60 * 60 * 1000;          // same 1 hour as the app
+const MAX_OVERDUE_MS = 24 * 60 * 60 * 1000;      // ignore tasks stale for more than 24h
+const TIMEOUT_CHECK_EVERY_MS = 5 * 60 * 1000;
+
+let timeoutCheckRunning = false;
+
+async function checkTimedOutTasks() {
+  if (timeoutCheckRunning) return; // never let two runs overlap
+  timeoutCheckRunning = true;
+  try {
+    // Single-field query on purpose: needs no composite Firestore index.
+    const snap = await db.collection('tasks').where('status', '==', 'assigned').get();
+    const now = Date.now();
+    let reminded = 0;
+
+    for (const doc of snap.docs) {
+      const task = doc.data();
+
+      // assignedAt can be briefly null right after creation (server timestamp pending).
+      if (!task.assignedAt || typeof task.assignedAt.toMillis !== 'function') continue;
+      if (!task.assignedBy) continue;
+
+      const assignedMs = task.assignedAt.toMillis();
+      const age = now - assignedMs;
+      if (age < TASK_TIMEOUT_MS) continue;                       // still within the hour
+      if (age > TASK_TIMEOUT_MS + MAX_OVERDUE_MS) continue;      // stale, skip
+      if (task.timeoutNotifiedFor === assignedMs) continue;      // already reminded
+
+      const volunteer = task.volunteerName || 'A volunteer';
+      const title = task.title || task.itemName || 'a task';
+
+      // One atomic batch: the reminder and the "already reminded" mark succeed or fail
+      // together, so a failure can never cause a reminder to repeat every 5 minutes.
+      const batch = db.batch();
+      batch.set(db.collection('notifications').doc(), {
+        toUserId: task.assignedBy,
+        title: 'Task Not Responded To',
+        message: `${volunteer} has not responded to "${title}" within 1 hour. You may want to reassign it.`,
+        type: 'task_timeout',
+        entityId: doc.id,
+        isRead: false,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      batch.update(doc.ref, { timeoutNotifiedFor: assignedMs });
+      await batch.commit();
+      reminded++;
+    }
+
+    if (reminded > 0) console.log(`Task timeout check: reminded managers about ${reminded} task(s)`);
+  } catch (e) {
+    console.error('Task timeout check failed:', e.message);
+  } finally {
+    timeoutCheckRunning = false;
+  }
+}
+
+checkTimedOutTasks();
+setInterval(checkTimedOutTasks, TIMEOUT_CHECK_EVERY_MS);

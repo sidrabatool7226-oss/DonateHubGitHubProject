@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import '../screens/manager_profile_screen.dart';
 
 class ManagerProfileTab extends StatelessWidget {
-  const ManagerProfileTab({super.key});
+  final VoidCallback? onBack; // NEW
+  const ManagerProfileTab({super.key, this.onBack});
 
   @override
   Widget build(BuildContext context) {
-    return const ManagerProfileScreen();
+    return ManagerProfileScreen(onBack: onBack);
   }
 }

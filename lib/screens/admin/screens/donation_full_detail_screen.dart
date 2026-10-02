@@ -59,7 +59,8 @@ class DonationFullDetailScreen extends StatelessWidget {
                     _row('Name', donorProfile?['name'] ?? data['donorName'] ?? '-'),
                     _row('Email', donorProfile?['email'] ?? data['userEmail'] ?? data['donorEmail'] ?? '-'),
                     if (donorId != null) _row('Donor ID', donorId),
-                    if (donorProfile?['phone'] != null) _row('Phone', donorProfile!['phone']),
+                    if ((donorProfile?['mobileNumber'] ?? donorProfile?['phone']) != null) // FIXED (Bug 6) — donors save 'mobileNumber'
+                      _row('Phone', donorProfile!['mobileNumber'] ?? donorProfile!['phone']),
                     if (data['donorContact'] != null && data['donorContact'].toString().isNotEmpty)
                       _row('Contact', data['donorContact']),
                   ],
@@ -198,7 +199,14 @@ class _TimelineCard extends StatelessWidget {
     final steps = _steps;
     if (status == 'pending') return 0;
     if (status == 'rejected') return -1;
-    final idx = steps.indexOf(status);
+    // FIXED (Bug 4) — the Manager flow sets 'pickup_assigned' / 'volunteer_assigned', which
+    // are not timeline steps, so progress used to fall back to "Submitted" only.
+    // They mean the same as 'pending_pickup' (approved, waiting for pickup).
+    final String effective =
+    (status == 'pickup_assigned' || status == 'volunteer_assigned')
+        ? 'pending_pickup'
+        : status;
+    final idx = steps.indexOf(effective);
     return idx == -1 ? 0 : idx;
   }
 

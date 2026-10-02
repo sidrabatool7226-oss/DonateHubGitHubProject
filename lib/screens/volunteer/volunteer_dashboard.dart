@@ -19,7 +19,7 @@ class _VolunteerDashboardState extends State<VolunteerDashboard> {
 
   late final List<Widget> _tabs = [
     VolunteerHomeTab(onGoToProfile: () => setState(() => _currentIndex = 4)),
-    const VolunteerTasksTab(),
+    VolunteerTasksTab(onBack: () => setState(() => _currentIndex = 0)), // CHANGED — back arrow returns to Home
     const VolunteerRewardsTab(),
     const VolunteerEventsTab(),
     VolunteerProfileTab(onGoHome: () => setState(() => _currentIndex = 0)),

@@ -85,9 +85,41 @@ class UtilizationController extends GetxController {
     }).toList();
   }
 
+  // CHANGED — the stream is created once and reused. Before, every call built a
+  // brand-new Firestore listener, so each keystroke in the search bar tore the
+  // list down and showed the loader again (worst on web).
+  Stream<QuerySnapshot>? _utilizationStream;
   Stream<QuerySnapshot> get utilizationStream {
-    Query query = _db.collection('utilization').orderBy('createdAt', descending: true);
-    return query.snapshots();
+    return _utilizationStream ??= _db
+        .collection('utilization')
+        .orderBy('createdAt', descending: true)
+        .snapshots();
+  }
+
+  // NEW — one lowercase text blob per record so search can match any field the
+  // card shows (campaign, description, type, status, date, amount,
+  // beneficiaries, item names/categories). Uses toString() so numbers or
+  // missing fields can never throw.
+  String _searchText(Map<String, dynamic> r) {
+    final parts = <String>[
+      (r['campaignName'] ?? '').toString(),
+      (r['description'] ?? '').toString(),
+      (r['donationType'] ?? '').toString(),
+      (r['status'] ?? '').toString(),
+      (r['utilizationDate'] ?? '').toString(),
+      (r['beneficiaries'] ?? '').toString(),
+      (r['fundAmountUsed'] ?? '').toString(),
+    ];
+    final items = r['itemsUtilized'];
+    if (items is List) {
+      for (final it in items) {
+        if (it is Map) {
+          parts.add((it['itemName'] ?? '').toString());
+          parts.add((it['category'] ?? '').toString());
+        }
+      }
+    }
+    return parts.join(' ').toLowerCase();
   }
 
   List<Map<String, dynamic>> filterRecords(List<Map<String, dynamic>> records) {
@@ -106,13 +138,14 @@ class UtilizationController extends GetxController {
       }).toList();
     }
 
-    if (searchQuery.value.isNotEmpty) {
-      final q = searchQuery.value.toLowerCase();
-      result = result
-          .where((r) =>
-      (r['campaignName'] ?? '').toLowerCase().contains(q) ||
-          (r['description'] ?? '').toLowerCase().contains(q))
-          .toList();
+    final q = searchQuery.value.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      // every word typed must appear somewhere in the record
+      final terms = q.split(RegExp(r'\s+'));
+      result = result.where((r) {
+        final text = _searchText(r);
+        return terms.every((t) => text.contains(t));
+      }).toList();
     }
 
     return result;

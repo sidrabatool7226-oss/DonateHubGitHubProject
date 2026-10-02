@@ -9,6 +9,7 @@ import '../screens/event_participants_screen.dart';
 import '../../../widgets/picked_image_preview.dart';
 import '../screens/admin_general_fund_screen.dart'; // NEW
 import '../../../controllers/admin_nav_controller.dart';
+import '../../../widgets/admin_page_kit.dart';
 class AdminCampaignsEventsTab extends StatefulWidget {
   const AdminCampaignsEventsTab({super.key});
 
@@ -57,151 +58,154 @@ class _AdminCampaignsEventsTabState
     return Scaffold(
       backgroundColor: const Color(0xFFF4F6F8),
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ─────────────────────────────────────────────
-            Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  colors: isEvents
-                      ? [_blue, const Color(0xFF1E88E5)]
-                      : const [Color(0xFF1B6B3A), Color(0xFF2D8A52)],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        child: AdminPageScroll(
+          child: Column(
+            children: [
+              // ── Header ─────────────────────────────────────────────
+              Container(
+                decoration: BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: isEvents
+                        ? [_blue, const Color(0xFF1E88E5)]
+                        : const [Color(0xFF1B6B3A), Color(0xFF2D8A52)],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment:
-                            CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                isEvents ? 'Events' : 'Campaigns & Projects',
-                                style: const TextStyle(
-                                  color: Colors.white,
-                                  fontSize: 20,
-                                  fontWeight: FontWeight.bold,
-                                ),
-                              ),
-                              Text(
-                                isEvents
-                                    ? 'Coordinate volunteer turnout'
-                                    : 'Manage campaigns, projects & sponsorships',
-                                style: const TextStyle(
-                                  color: Colors.white70,
-                                  fontSize: 12,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        // General Fund quick access — only relevant to
-                        // Fundraising, hidden on the Events segment.
-                        if (!isEvents)
-                          GestureDetector(
-                            onTap: () => Get.to(
-                                  () => const AdminGeneralFundScreen(),
-                              transition: Transition.rightToLeft,
-                            ),
-                            child: Container(
-                              width: 40,
-                              height: 40,
-                              margin: const EdgeInsets.only(right: 8),
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.2),
-                                shape: BoxShape.circle,
-                                border: Border.all(color: Colors.white.withOpacity(0.4)),
-                              ),
-                              child: const Icon(Icons.savings_rounded, color: Colors.white, size: 18),
-                            ),
-                          ),
-                        // Add button
-                        Builder(builder: (ctx) {
-                          return GestureDetector(
-                            onTap: () => isEvents
-                                ? _showAddEventSheet(ctx, eventController)
-                                : _showAddCampaignSheet(ctx, campaignController),
-                            child: Container(
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 14, vertical: 8),
-                              decoration: BoxDecoration(
-                                color:
-                                Colors.white.withOpacity(0.2),
-                                borderRadius:
-                                BorderRadius.circular(20),
-                                border: Border.all(
-                                    color: Colors.white
-                                        .withOpacity(0.4)),
-                              ),
-                              child: const Row(
-                                children: [
-                                  Icon(Icons.add_rounded,
-                                      color: Colors.white,
-                                      size: 16),
-                                  SizedBox(width: 4),
-                                  Text(
-                                    'Add New',
-                                    style: TextStyle(
-                                      color: Colors.white,
-                                      fontSize: 13,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        }),
-                      ],
-                    ),
-                    const SizedBox(height: 14),
-                    // NEW — Fundraising / Events segmented toggle
-                    Container(
-                      padding: const EdgeInsets.all(3),
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                      child: Row(
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 16, 20, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
                         children: [
+                          const AdminBackButton(), // NEW — back to Home tab
+                          const SizedBox(width: 12),
                           Expanded(
-                            child: _SegmentButton(
-                              label: 'Fundraising',
-                              icon: Icons.campaign_rounded,
-                              selected: !isEvents,
-                              onTap: () => setState(() => _selectedTab = 0),
+                            child: Column(
+                              crossAxisAlignment:
+                              CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  isEvents ? 'Events' : 'Campaigns & Projects',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 20,
+                                    fontWeight: FontWeight.bold,
+                                  ),
+                                ),
+                                Text(
+                                  isEvents
+                                      ? 'Coordinate volunteer turnout'
+                                      : 'Manage campaigns, projects & sponsorships',
+                                  style: const TextStyle(
+                                    color: Colors.white70,
+                                    fontSize: 12,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                          Expanded(
-                            child: _SegmentButton(
-                              label: 'Events',
-                              icon: Icons.event_rounded,
-                              selected: isEvents,
-                              onTap: () => setState(() => _selectedTab = 1),
+                          // General Fund quick access — only relevant to
+                          // Fundraising, hidden on the Events segment.
+                          if (!isEvents)
+                            GestureDetector(
+                              onTap: () => Get.to(
+                                    () => const AdminGeneralFundScreen(),
+                                transition: Transition.rightToLeft,
+                              ),
+                              child: Container(
+                                width: 40,
+                                height: 40,
+                                margin: const EdgeInsets.only(right: 8),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withOpacity(0.2),
+                                  shape: BoxShape.circle,
+                                  border: Border.all(color: Colors.white.withOpacity(0.4)),
+                                ),
+                                child: const Icon(Icons.savings_rounded, color: Colors.white, size: 18),
+                              ),
                             ),
-                          ),
+                          // Add button
+                          Builder(builder: (ctx) {
+                            return GestureDetector(
+                              onTap: () => isEvents
+                                  ? _showAddEventSheet(ctx, eventController)
+                                  : _showAddCampaignSheet(ctx, campaignController),
+                              child: Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 14, vertical: 8),
+                                decoration: BoxDecoration(
+                                  color:
+                                  Colors.white.withOpacity(0.2),
+                                  borderRadius:
+                                  BorderRadius.circular(20),
+                                  border: Border.all(
+                                      color: Colors.white
+                                          .withOpacity(0.4)),
+                                ),
+                                child: const Row(
+                                  children: [
+                                    Icon(Icons.add_rounded,
+                                        color: Colors.white,
+                                        size: 16),
+                                    SizedBox(width: 4),
+                                    Text(
+                                      'Add New',
+                                      style: TextStyle(
+                                        color: Colors.white,
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          }),
                         ],
                       ),
-                    ),
-                  ],
+                      const SizedBox(height: 14),
+                      // NEW — Fundraising / Events segmented toggle
+                      Container(
+                        padding: const EdgeInsets.all(3),
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.15),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          children: [
+                            Expanded(
+                              child: _SegmentButton(
+                                label: 'Fundraising',
+                                icon: Icons.campaign_rounded,
+                                selected: !isEvents,
+                                onTap: () => setState(() => _selectedTab = 0),
+                              ),
+                            ),
+                            Expanded(
+                              child: _SegmentButton(
+                                label: 'Events',
+                                icon: Icons.event_rounded,
+                                selected: isEvents,
+                                onTap: () => setState(() => _selectedTab = 1),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ),
 
-            // ── List ─────────────────────────────────────────────────
-            Expanded(
-              child: isEvents
+              // ── List ─────────────────────────────────────────────────
+              // CHANGED — no Expanded; the whole page scrolls (AdminPageScroll).
+              isEvents
                   ? _EventsList(controller: eventController)
                   : _CampaignsList(controller: campaignController),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -301,18 +305,27 @@ class _CampaignsList extends StatelessWidget {
       stream: controller.campaignsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: _green),
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 60),
+            child: Center(
+              child: CircularProgressIndicator(color: _green),
+            ),
           );
         }
 
         final docs = snapshot.data?.docs ?? [];
 
         if (docs.isEmpty) {
-          return _EmptyCampaigns();
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: _EmptyCampaigns(),
+          );
         }
 
+        // CHANGED — list no longer scrolls on its own; the whole page does.
         return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           itemCount: docs.length,
           itemBuilder: (context, index) {
@@ -813,18 +826,27 @@ class _EventsList extends StatelessWidget {
       stream: controller.eventsStream,
       builder: (context, snapshot) {
         if (snapshot.connectionState == ConnectionState.waiting) {
-          return const Center(
-            child: CircularProgressIndicator(color: _blue),
+          return const Padding(
+            padding: EdgeInsets.symmetric(vertical: 60),
+            child: Center(
+              child: CircularProgressIndicator(color: _blue),
+            ),
           );
         }
 
         final docs = snapshot.data?.docs ?? [];
 
         if (docs.isEmpty) {
-          return _EmptyEvents();
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 48),
+            child: _EmptyEvents(),
+          );
         }
 
+        // CHANGED — list no longer scrolls on its own; the whole page does.
         return ListView.builder(
+          shrinkWrap: true,
+          physics: const NeverScrollableScrollPhysics(),
           padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
           itemCount: docs.length,
           itemBuilder: (context, index) {

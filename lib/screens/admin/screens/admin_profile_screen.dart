@@ -100,7 +100,7 @@ class AdminProfileScreen extends StatelessWidget {
                         label: 'Rewards & Recognition',
                         subtitle: 'Donor and volunteer points & badges',
                         color: const Color(0xFFDB7C26),
-                        onTap: () => Get.to(() => const RewardsOverviewScreen()),
+                        onTap: () => Get.to(() => const RewardsOverviewScreen(showVolunteerPoints: true)), // CHANGED — volunteer points shown
                       ),
 
                       const SizedBox(height: 20),
@@ -1116,7 +1116,7 @@ class _ChangePasswordSheet
             label:
             'New Password *',
             hint:
-            'Min 6 characters',
+            'Min 8 characters',
             icon:
             Icons.lock_reset_outlined,
             isPassword: true,

@@ -13,6 +13,11 @@ class ManagerTasksController extends GetxController {
   var selectedTab = 0.obs;
   var isSaving = false.obs;
 
+  // NEW — which volunteer's "Assign" button was pressed. The assign screen uses
+  // it so only THAT card shows the progress spinner (before, every card's
+  // button looked pressed because they all shared isSaving).
+  var assigningVolunteerId = ''.obs;
+
   final List<String> tabLabels = const ['Pending', 'Active', 'Delivered', 'Completed'];
 
   Stream<QuerySnapshot> get approvedDonationsStream => _db
@@ -48,19 +53,64 @@ class ManagerTasksController extends GetxController {
     }
   }
 
+  // NEW — finds the donor's user id so the donor can be notified. Older
+  // donations were saved without 'donorId', so those donors never got the
+  // "volunteer assigned" notification. Falls back to 'userId', then to a lookup
+  // by the donor's e-mail.
+  Future<String> _resolveDonorId(Map<String, dynamic> donationData) async {
+    final String direct = (donationData['donorId'] ?? donationData['userId'] ?? '').toString();
+    if (direct.isNotEmpty) return direct;
+
+    final String email =
+    (donationData['userEmail'] ?? donationData['donorEmail'] ?? '').toString().trim();
+    if (email.isEmpty || !email.contains('@')) return '';
+    try {
+      final snap = await _db.collection('users').where('email', isEqualTo: email).limit(1).get();
+      if (snap.docs.isNotEmpty) return snap.docs.first.id;
+    } catch (_) {
+      // best-effort only
+    }
+    return '';
+  }
+
   // ── Assign volunteer to a donation (Resource Pickup) ────────────────────
   // FIXED: taskCategory is now ALWAYS the literal string 'Resource Pickup'
   // for donation-triggered tasks — previously this fell back to the item's
   // shopping category (Food/Clothes/etc), which never matched any
   // volunteer role and silently broke eligibility filtering.
+  //
+  // showMessage: the assign screen passes false and shows the "Assigned"
+  // message itself AFTER it has closed. GetX's Get.back() closes an open
+  // snackbar instead of the screen, so a message shown here made the screen
+  // stay open and the message vanish instantly.
   Future<bool> assignVolunteer({
     required String donationId,
     required Map<String, dynamic> donationData,
     required String volunteerId,
     required String volunteerName,
+    bool showMessage = true,
   }) async {
     isSaving.value = true;
+    assigningVolunteerId.value = volunteerId; // NEW
     try {
+      // NEW — never create a second task for a donation that already has a
+      // live one (double tap, two managers, stale screen). A rejected task does
+      // not count: that one is handled through Reassign.
+      final existing = await _db
+          .collection('tasks')
+          .where('donationId', isEqualTo: donationId)
+          .get();
+      final bool alreadyAssigned = existing.docs.any((d) {
+        final s = (d.data()['status'] ?? '').toString();
+        return s == 'assigned' || s == 'accepted' || s == 'delivered' || s == 'completed';
+      });
+      if (alreadyAssigned) {
+        Get.snackbar('Already Assigned', 'This donation already has a volunteer assigned.',
+            backgroundColor: Colors.orange[50], colorText: Colors.orange[800],
+            snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+        return false;
+      }
+
       // NEW — volunteer's phone, so the donor can be told who is coming
       // and can call them. Read-only lookup of the volunteer's own user
       // doc; nothing else from that doc (CNIC, email, reward points,
@@ -68,7 +118,10 @@ class ManagerTasksController extends GetxController {
       String volunteerPhone = '';
       try {
         final volunteerDoc = await _db.collection('users').doc(volunteerId).get();
-        volunteerPhone = (volunteerDoc.data()?['mobileNumber'] ?? '').toString();
+        volunteerPhone = (volunteerDoc.data()?['mobileNumber'] ??
+            volunteerDoc.data()?['phone'] ?? // FIXED (Bug 6) — volunteers who only filled the form have 'phone'
+            '')
+            .toString();
       } catch (_) {
         // Best-effort only — assignment must not fail if this lookup fails.
       }
@@ -77,6 +130,10 @@ class ManagerTasksController extends GetxController {
       final quantity = donationData['quantity'] ?? 1;
       final String pickupAddress =
       (donationData['address'] ?? donationData['pickupAddress'] ?? '').toString();
+
+      // CHANGED — resolved donor id (also stored on the task so a later
+      // reassignment / completion can still notify the donor)
+      final String donorId = await _resolveDonorId(donationData);
 
       final taskRef = await _db.collection('tasks').add({
         'donationId': donationId,
@@ -88,7 +145,7 @@ class ManagerTasksController extends GetxController {
         'title': donationData['itemName'] ?? 'Resource Pickup',
         'itemName': donationData['itemName'] ?? '',
         'quantity': donationData['quantity'] ?? 1,
-        'donorId': donationData['donorId'] ?? '',
+        'donorId': donorId,
         'donorName': donationData['donorName'] ??
             donationData['userEmail'] ??
             donationData['donorEmail'] ??
@@ -105,6 +162,7 @@ class ManagerTasksController extends GetxController {
         'status': 'pickup_assigned',
       });
 
+      // → the volunteer
       await _db.collection('notifications').add({
         'toUserId': volunteerId,
         'title': 'New Pickup Task Assigned',
@@ -116,13 +174,14 @@ class ManagerTasksController extends GetxController {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      if ((donationData['donorId'] ?? '').toString().isNotEmpty) {
+      // → the donor
+      if (donorId.isNotEmpty) {
         // NEW — richer, professional donor notification: operational
         // info only (name, phone, item, quantity, pickup address).
         // Deliberately excludes CNIC, volunteer home address, email,
         // reward points, and any other personal profile detail.
         await _db.collection('notifications').add({
-          'toUserId': donationData['donorId'],
+          'toUserId': donorId,
           'title': 'Pickup Volunteer Assigned',
           'message': '$volunteerName has been assigned to pick up your donation.',
           'type': 'pickup_assigned',
@@ -137,9 +196,11 @@ class ManagerTasksController extends GetxController {
         });
       }
 
-      Get.snackbar('Assigned', 'Task assigned to $volunteerName',
-          backgroundColor: Colors.green[50], colorText: Colors.green[700],
-          snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+      if (showMessage) {
+        Get.snackbar('Assigned', 'Task assigned to $volunteerName',
+            backgroundColor: Colors.green[50], colorText: Colors.green[700],
+            snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+      }
       return true;
     } catch (e) {
       Get.snackbar('Error', 'Failed to assign task.',
@@ -148,6 +209,7 @@ class ManagerTasksController extends GetxController {
       return false;
     } finally {
       isSaving.value = false;
+      assigningVolunteerId.value = ''; // NEW
     }
   }
 
@@ -156,14 +218,19 @@ class ManagerTasksController extends GetxController {
     required String oldVolunteerId,
     required String newVolunteerId,
     required String newVolunteerName,
+    bool showMessage = true, // NEW — see assignVolunteer
   }) async {
     isSaving.value = true;
+    assigningVolunteerId.value = newVolunteerId; // NEW
     try {
       // NEW — new volunteer's phone, same read-only lookup as assignVolunteer.
       String newVolunteerPhone = '';
       try {
         final volunteerDoc = await _db.collection('users').doc(newVolunteerId).get();
-        newVolunteerPhone = (volunteerDoc.data()?['mobileNumber'] ?? '').toString();
+        newVolunteerPhone = (volunteerDoc.data()?['mobileNumber'] ??
+            volunteerDoc.data()?['phone'] ?? // FIXED (Bug 6)
+            '')
+            .toString();
       } catch (_) {
         // Best-effort only.
       }
@@ -217,15 +284,18 @@ class ManagerTasksController extends GetxController {
         // notification can't be sent.
       }
 
-      Get.snackbar('Reassigned', 'Task reassigned to $newVolunteerName',
-          backgroundColor: Colors.green[50], colorText: Colors.green[700],
-          snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+      if (showMessage) {
+        Get.snackbar('Reassigned', 'Task reassigned to $newVolunteerName',
+            backgroundColor: Colors.green[50], colorText: Colors.green[700],
+            snackPosition: SnackPosition.BOTTOM, margin: const EdgeInsets.all(16));
+      }
       return true;
     } catch (e) {
       Get.snackbar('Error', 'Failed to reassign.', snackPosition: SnackPosition.BOTTOM);
       return false;
     } finally {
       isSaving.value = false;
+      assigningVolunteerId.value = ''; // NEW
     }
   }
 

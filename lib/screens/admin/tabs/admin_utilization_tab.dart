@@ -4,6 +4,7 @@ import 'package:get/get.dart';
 import '../../../controllers/utilization_controller.dart';
 import '../screens/utilization_detail_screen.dart';
 import '../screens/create_utilization_screen.dart';
+import '../../../widgets/admin_page_kit.dart';
 
 class AdminUtilizationTab extends StatelessWidget {
   const AdminUtilizationTab({super.key});
@@ -19,197 +20,225 @@ class AdminUtilizationTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ─────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.fromLTRB(
-                  20, 16, 20, 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_green, _lightGreen],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        child: AdminPageScroll(
+          child: Column(
+            children: [
+              // ── Header ─────────────────────────────────────────────
+              Container(
+                padding: const EdgeInsets.fromLTRB(
+                    20, 16, 20, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_green, _lightGreen],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Column(
-                          crossAxisAlignment:
-                          CrossAxisAlignment.start,
-                          children: [
-                            Text(
-                              'Utilization',
-                              style: TextStyle(
-                                color: Colors.white,
-                                fontSize: 20,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                            Text(
-                              'Track how donations are used',
-                              style: TextStyle(
-                                color: Colors.white70,
-                                fontSize: 12,
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Get.to(
-                              () => CreateUtilizationScreen(),
-                          transition: Transition.rightToLeft,
-                        ),
-                        child: Container(
-                          padding:
-                          const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Colors.white
-                                .withOpacity(0.2),
-                            borderRadius:
-                            BorderRadius.circular(20),
-                            border: Border.all(
-                                color: Colors.white
-                                    .withOpacity(0.4)),
-                          ),
-                          child: const Row(
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        const AdminBackButton(), // NEW — back to Home tab
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Column(
+                            crossAxisAlignment:
+                            CrossAxisAlignment.start,
                             children: [
-                              Icon(Icons.add_rounded,
-                                  color: Colors.white,
-                                  size: 16),
-                              SizedBox(width: 4),
                               Text(
-                                'Add Record',
+                                'Utilization',
                                 style: TextStyle(
                                   color: Colors.white,
-                                  fontSize: 13,
-                                  fontWeight:
-                                  FontWeight.w600,
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.bold,
+                                ),
+                              ),
+                              Text(
+                                'Track how donations are used',
+                                style: TextStyle(
+                                  color: Colors.white70,
+                                  fontSize: 12,
                                 ),
                               ),
                             ],
                           ),
                         ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 14),
-
-                  // Search bar
-                  Container(
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color:
-                      Colors.white.withOpacity(0.15),
-                      borderRadius:
-                      BorderRadius.circular(12),
-                    ),
-                    child: TextField(
-                      onChanged: (val) =>
-                      controller.searchQuery.value =
-                          val,
-                      style: const TextStyle(
-                          color: Colors.white,
-                          fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Search records...',
-                        hintStyle: TextStyle(
-                            color: Colors.white
-                                .withOpacity(0.6),
-                            fontSize: 13),
-                        prefixIcon: const Icon(
-                            Icons.search,
-                            color: Colors.white70,
-                            size: 18),
-                        border: InputBorder.none,
-                        contentPadding:
-                        const EdgeInsets.symmetric(
-                            vertical: 12),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Filter chips ───────────────────────────────────────
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: SizedBox(
-                height: 34,
-                child: Obx(() {
-                  final selected = controller.selectedFilter.value; // ✅ Explicit read yahan
-                  return SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: controller.filterOptions.map((f) {
-                        final isSel = selected == f;
-                        return GestureDetector(
-                          onTap: () => controller.selectedFilter.value = f,
+                        GestureDetector(
+                          onTap: () => Get.to(
+                                () => CreateUtilizationScreen(),
+                            transition: Transition.rightToLeft,
+                          ),
                           child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                            padding:
+                            const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 8),
                             decoration: BoxDecoration(
-                              color: isSel ? _green : const Color(0xFFF4F6F8),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isSel ? _green : Colors.grey.shade300),
+                              color: Colors.white
+                                  .withOpacity(0.2),
+                              borderRadius:
+                              BorderRadius.circular(20),
+                              border: Border.all(
+                                  color: Colors.white
+                                      .withOpacity(0.4)),
                             ),
-                            child: Text(
-                              f,
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: isSel ? Colors.white : Colors.grey[700],
-                                fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
-                              ),
+                            child: const Row(
+                              children: [
+                                Icon(Icons.add_rounded,
+                                    color: Colors.white,
+                                    size: 16),
+                                SizedBox(width: 4),
+                                Text(
+                                  'Add Record',
+                                  style: TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 13,
+                                    fontWeight:
+                                    FontWeight.w600,
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
-                        );
-                      }).toList(),
+                        ),
+                      ],
                     ),
-                  );
-                }),
+                    const SizedBox(height: 14),
+
+                    // Search bar
+                    Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color:
+                        Colors.white.withOpacity(0.15),
+                        borderRadius:
+                        BorderRadius.circular(12),
+                      ),
+                      child: TextField(
+                        onChanged: (val) =>
+                        controller.searchQuery.value =
+                            val,
+                        style: const TextStyle(
+                            color: Colors.white,
+                            fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Search records...',
+                          hintStyle: TextStyle(
+                              color: Colors.white
+                                  .withOpacity(0.6),
+                              fontSize: 13),
+                          prefixIcon: const Icon(
+                              Icons.search,
+                              color: Colors.white70,
+                              size: 18),
+                          border: InputBorder.none,
+                          contentPadding:
+                          const EdgeInsets.symmetric(
+                              vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
-            ),
 
-            // ── List ──────────────────────────────────────────────
-            // ── List ──────────────────────────────────────────────
-            Expanded(
-              child: Obx(() {
-                // Yeh 2 lines zaroori hain — GetX ko pata chale kis cheez pe react karna hai
-                final currentFilter = controller.selectedFilter.value;
-                final currentSearch = controller.searchQuery.value;
+              // ── Filter chips ───────────────────────────────────────
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: SizedBox(
+                  height: 34,
+                  child: Obx(() {
+                    final selected = controller.selectedFilter.value; // ✅ Explicit read yahan
+                    return SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: controller.filterOptions.map((f) {
+                          final isSel = selected == f;
+                          return GestureDetector(
+                            onTap: () => controller.selectedFilter.value = f,
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
+                              decoration: BoxDecoration(
+                                color: isSel ? _green : const Color(0xFFF4F6F8),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: isSel ? _green : Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                f,
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  color: isSel ? Colors.white : Colors.grey[700],
+                                  fontWeight: isSel ? FontWeight.w600 : FontWeight.normal,
+                                ),
+                              ),
+                            ),
+                          );
+                        }).toList(),
+                      ),
+                    );
+                  }),
+                ),
+              ),
 
-                return StreamBuilder<QuerySnapshot>(
-                  stream: controller.utilizationStream,
-                  builder: (context, snapshot) {
-                    if (snapshot.connectionState == ConnectionState.waiting) {
-                      return const Center(
+              // ── List ──────────────────────────────────────────────
+              // ── List ──────────────────────────────────────────────
+              // CHANGED — StreamBuilder is now OUTSIDE the Obx. Typing in the search
+              // bar (or picking a filter) only re-filters the already loaded data;
+              // it no longer re-subscribes to Firestore or flashes the loader.
+              StreamBuilder<QuerySnapshot>(
+                stream: controller.utilizationStream,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting &&
+                      !snapshot.hasData) {
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(
                         child: CircularProgressIndicator(color: _green),
-                      );
-                    }
+                      ),
+                    );
+                  }
 
-                    final allDocs = snapshot.data?.docs ?? [];
-                    final allRecords = allDocs.map((doc) {
-                      final data = doc.data() as Map<String, dynamic>;
-                      data['id'] = doc.id;
-                      return data;
-                    }).toList();
+                  if (snapshot.hasError) {
+                    return Padding(
+                      padding: const EdgeInsets.all(24),
+                      child: Center(
+                        child: Text(
+                          'Unable to load records.\n${snapshot.error}',
+                          textAlign: TextAlign.center,
+                          style: const TextStyle(color: Colors.red, fontSize: 12),
+                        ),
+                      ),
+                    );
+                  }
+
+                  final allDocs = snapshot.data?.docs ?? [];
+                  final allRecords = allDocs.map((doc) {
+                    final data = doc.data() as Map<String, dynamic>;
+                    data['id'] = doc.id;
+                    return data;
+                  }).toList();
+
+                  return Obx(() {
+                    // Yeh 2 lines zaroori hain — GetX ko pata chale kis cheez pe react karna hai
+                    final currentFilter = controller.selectedFilter.value;
+                    final currentSearch = controller.searchQuery.value;
 
                     final filtered = controller.filterRecords(allRecords);
 
                     if (filtered.isEmpty) {
-                      return _EmptyState();
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        child: _EmptyState(),
+                      );
                     }
 
+                    // list no longer scrolls on its own; the whole page does.
                     return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
                       itemCount: filtered.length,
                       itemBuilder: (context, index) {
@@ -219,11 +248,11 @@ class AdminUtilizationTab extends StatelessWidget {
                         );
                       },
                     );
-                  },
-                );
-              }),
-            ),
-          ],
+                  });
+                },
+              ),
+            ],
+          ),
         ),
       ),
     );

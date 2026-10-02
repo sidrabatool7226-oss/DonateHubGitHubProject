@@ -16,6 +16,15 @@ class ManagerHomeController extends GetxController {
   var activeCampaigns = 0.obs;
   var recentActivity = <Map<String, dynamic>>[].obs;
 
+  // Same rule as ManagerVolunteersListScreen so the count always matches the list
+  static const List<String> _pendingStages = [
+    'Pending',
+    'Form_Reviewed',
+    'Video_Scheduled',
+    'Video_Completed',
+    'Physical_Scheduled',
+  ];
+
   @override
   void onInit() {
     super.onInit();
@@ -31,19 +40,22 @@ class ManagerHomeController extends GetxController {
   }
 
   void _bindCounts() {
-    // Pending volunteers — any stage before Verified/Rejected
+    // Pending volunteers — live from Firestore (users with role = volunteer).
+    // Volunteers who just signed up have no verificationStage yet, so a
+    // whereIn query missed them. Filter on the client like the list screen.
     _db
         .collection('users')
         .where('role', isEqualTo: 'volunteer')
-        .where('verificationStage', whereIn: [
-      'Pending',
-      'Form_Reviewed',
-      'Video_Scheduled',
-      'Video_Completed',
-      'Physical_Scheduled',
-    ])
         .snapshots()
-        .listen((snap) => pendingVolunteers.value = snap.docs.length);
+        .listen((snap) {
+      pendingVolunteers.value = snap.docs.where((doc) {
+        final data = doc.data();
+        final stage = (data['verificationStage'] ?? 'Pending').toString();
+        final status = (data['status'] ?? 'pending').toString().toLowerCase();
+        return _pendingStages.contains(stage) ||
+            (status == 'pending' && stage != 'Rejected');
+      }).length;
+    });
 
     // Pending donations (fund + resource)
     _db
@@ -59,17 +71,24 @@ class ManagerHomeController extends GetxController {
         .snapshots()
         .listen((snap) => activeTasks.value = snap.docs.length);
 
-    // Completed today
+    // Completed today — CHANGED: now counts the TASKS the manager completed
+    // today (the same tasks listed under Tasks → Completed), not donations.
+    // Only the date is filtered in the query (a single range filter needs no
+    // composite index); the 'completed' status is checked here.
     final startOfDay = DateTime.now();
     final todayStart =
     DateTime(startOfDay.year, startOfDay.month, startOfDay.day);
     _db
-        .collection('donations')
-        .where('status', isEqualTo: 'completed')
+        .collection('tasks')
         .where('completedAt',
         isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
         .snapshots()
-        .listen((snap) => completedToday.value = snap.docs.length);
+        .listen((snap) {
+      completedToday.value = snap.docs
+          .where((doc) => (doc.data()['status'] ?? '').toString() == 'completed')
+          .length;
+    });
+
     // Active campaigns
     _db
         .collection('campaigns')

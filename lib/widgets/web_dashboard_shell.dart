@@ -14,6 +14,12 @@ class WebNavItem {
   const WebNavItem(this.icon, this.label);
 }
 
+/// NEW — put this on a tab widget (`class MyTab extends StatelessWidget implements WebFullBleedPage`)
+/// when the tab wants the WHOLE content area on web: no 28px side padding and no 1400px width cap.
+/// The tab then lays itself out, and its own scrollbar sits on the far edge of the window.
+/// Every other page is untouched.
+abstract class WebFullBleedPage {}
+
 class WebDashboardShell extends StatelessWidget {
   final String brandTitle;
   final String brandSubtitle;
@@ -46,6 +52,11 @@ class WebDashboardShell extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    // NEW — does the page on screen want the full content area? (see WebFullBleedPage)
+    final bool fullBleed = selectedIndex >= 0 &&
+        selectedIndex < pages.length &&
+        pages[selectedIndex] is WebFullBleedPage;
+
     return Scaffold(
       backgroundColor: const Color(0xFFF4F7F6),
       body: LayoutBuilder(
@@ -79,9 +90,9 @@ class WebDashboardShell extends StatelessWidget {
                       child: Align(
                         alignment: Alignment.topCenter,
                         child: ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 1400),
+                          constraints: BoxConstraints(maxWidth: fullBleed ? double.infinity : 1400), // CHANGED — only the width value depends on the page
                           child: Padding(
-                            padding: const EdgeInsets.fromLTRB(28, 22, 28, 22),
+                            padding: fullBleed ? EdgeInsets.zero : const EdgeInsets.fromLTRB(28, 22, 28, 22), // CHANGED
                             child: IndexedStack(index: selectedIndex, children: pages),
                           ),
                         ),

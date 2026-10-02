@@ -48,7 +48,12 @@ class AdminHomeTabWeb extends StatelessWidget {
                 stream: db.collection('donations').snapshots(),
                 countFilter: (data) {                                    // ADD
                   final s = (data['status'] ?? '').toString().trim().toLowerCase();
-                  return s == 'approved' || s == 'completed' || s == 'complete';
+                  // FIXED (Bug 4) — same statuses as AdminDonationsListScreen, so card and list still match.
+                  return const [
+                    'approved', 'pickup_assigned', 'in_transit', 'awaiting_physical',
+                    'pending_pickup', 'volunteer_assigned', 'picked_up', 'received',
+                    'completed', 'complete',
+                  ].contains(s);
                 },
                 label: 'Total Donations', icon: Icons.volunteer_activism_rounded,
                 color: const Color(0xFF1B6B3A), lightColor: const Color(0xFFE8F5E9),
