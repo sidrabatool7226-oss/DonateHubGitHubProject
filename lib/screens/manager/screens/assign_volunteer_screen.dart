@@ -2,7 +2,7 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/manager_tasks_controller.dart';
-import '../../../widgets/admin_page_kit.dart'; // NEW — whole-page scroll (shared widget)
+import '../../../widgets/admin_page_kit.dart';
 
 class AssignVolunteerScreen extends StatelessWidget {
   final String donationId;
@@ -25,10 +25,7 @@ class AssignVolunteerScreen extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = Get.find<ManagerTasksController>();
-    // CHANGED — a donation pickup is always a 'Resource Pickup' task (see
-    // ManagerTasksController.assignVolunteer). Volunteers' roles contain
-    // 'Resource Pickup', never the item's shopping category (Food / Clothes /
-    // 'pickup_delivery'), so the old value never matched anybody.
+
     final String category = 'Resource Pickup';
 
     return Scaffold(
@@ -41,9 +38,7 @@ class AssignVolunteerScreen extends StatelessWidget {
             style: const TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
         leading: GestureDetector(onTap: () => Get.back(), child: const Icon(Icons.arrow_back_ios_rounded)),
       ),
-      // CHANGED — the whole screen scrolls (task card, note and volunteer list
-      // together) instead of only the list. Content is centred and capped at
-      // 760px so it also looks right on the web panel.
+
       body: AdminPageScroll(
         child: Center(
           child: ConstrainedBox(
@@ -87,7 +82,7 @@ class AssignVolunteerScreen extends StatelessWidget {
                     children: [
                       const Icon(Icons.filter_alt_outlined, size: 14, color: _emerald),
                       const SizedBox(width: 6),
-                      Expanded( // FIXED — was overflowing off the right edge for longer category names
+                      Expanded(
                         child: Text(
                           'Showing verified & online volunteers for "$category"',
                           style: const TextStyle(fontSize: 11.5, color: _emerald, fontWeight: FontWeight.w600),
@@ -106,16 +101,7 @@ class AssignVolunteerScreen extends StatelessWidget {
                       .where('role', isEqualTo: 'volunteer')
                       .where('verificationStage', isEqualTo: 'Verified')
                       .where('isOnline', isEqualTo: true)
-                  // CHANGED — 'status' is no longer a hard Firestore-level
-                  // filter here. A volunteer approved BEFORE the Admin
-                  // activate/deactivate feature existed has no 'status'
-                  // field at all, and Firestore's equality filter excludes
-                  // any document where the field is simply missing — not
-                  // just ones where it's 'inactive'. That silently hid
-                  // every older, perfectly legitimate volunteer from this
-                  // list. Deactivated volunteers are now excluded below,
-                  // client-side, by explicitly checking for 'inactive'
-                  // instead of requiring 'active'.
+
                       .snapshots(),
                   builder: (context, snapshot) {
                     if (snapshot.connectionState == ConnectionState.waiting) {
@@ -133,10 +119,6 @@ class AssignVolunteerScreen extends StatelessWidget {
 
                     final allVolunteers = (snapshot.data?.docs ?? []).where((v) {
                       final vData = v.data() as Map<String, dynamic>;
-                      // NEW — excludes only an explicitly deactivated account;
-                      // a volunteer with no 'status' field at all (older
-                      // accounts, approved before this feature existed) is
-                      // treated as active, not silently hidden.
                       return vData['status'] != 'inactive';
                     }).toList();
                     final matched = allVolunteers.where((v) {
@@ -146,7 +128,6 @@ class AssignVolunteerScreen extends StatelessWidget {
                     }).toList();
 
                     final list = matched.isNotEmpty ? matched : allVolunteers;
-                    // NEW — tell the manager when nobody online has the role
                     final bool showFallbackNote = matched.isEmpty && allVolunteers.isNotEmpty;
 
                     if (list.isEmpty) {
@@ -255,16 +236,13 @@ class AssignVolunteerScreen extends StatelessWidget {
                                       ],
                                     ),
                                   ),
-                                  // CHANGED — only the pressed volunteer's button shows a
-                                  // spinner; the others are just disabled while saving. On
-                                  // success the screen closes FIRST and the message is shown
-                                  // after (Get.back() would otherwise close the snackbar
-                                  // instead of this screen, so the message vanished).
+
                                   Obx(() {
                                     final bool busy = controller.isSaving.value;
                                     final bool mine = busy && controller.assigningVolunteerId.value == v.id;
                                     return ElevatedButton(
-                                      onPressed: busy ? null : () async {
+                                      onPressed: () async {
+                                        if (controller.isSaving.value) return; // already saving — ignore
                                         final bool isReassign = reassignTaskId != null;
                                         bool ok;
                                         if (isReassign) {
@@ -356,10 +334,6 @@ class AssignVolunteerScreen extends StatelessWidget {
   }
 }
 
-
-// ==========================================================================
-// NEW — TODAY'S SCHEDULE + ACTIVE TASK COUNT (shown on every volunteer card)
-// ==========================================================================
 class _VolunteerLoadRow extends StatelessWidget {
   final String volunteerId;
   final List schedule;

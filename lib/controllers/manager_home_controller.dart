@@ -12,11 +12,10 @@ class ManagerHomeController extends GetxController {
   var pendingVolunteers = 0.obs;
   var pendingDonations = 0.obs;
   var activeTasks = 0.obs;
-  var completedToday = 0.obs;
+  var completedTasks = 0.obs;
   var activeCampaigns = 0.obs;
   var recentActivity = <Map<String, dynamic>>[].obs;
 
-  // Same rule as ManagerVolunteersListScreen so the count always matches the list
   static const List<String> _pendingStages = [
     'Pending',
     'Form_Reviewed',
@@ -40,9 +39,7 @@ class ManagerHomeController extends GetxController {
   }
 
   void _bindCounts() {
-    // Pending volunteers — live from Firestore (users with role = volunteer).
-    // Volunteers who just signed up have no verificationStage yet, so a
-    // whereIn query missed them. Filter on the client like the list screen.
+
     _db
         .collection('users')
         .where('role', isEqualTo: 'volunteer')
@@ -71,23 +68,11 @@ class ManagerHomeController extends GetxController {
         .snapshots()
         .listen((snap) => activeTasks.value = snap.docs.length);
 
-    // Completed today — CHANGED: now counts the TASKS the manager completed
-    // today (the same tasks listed under Tasks → Completed), not donations.
-    // Only the date is filtered in the query (a single range filter needs no
-    // composite index); the 'completed' status is checked here.
-    final startOfDay = DateTime.now();
-    final todayStart =
-    DateTime(startOfDay.year, startOfDay.month, startOfDay.day);
     _db
         .collection('tasks')
-        .where('completedAt',
-        isGreaterThanOrEqualTo: Timestamp.fromDate(todayStart))
+        .where('status', isEqualTo: 'completed')
         .snapshots()
-        .listen((snap) {
-      completedToday.value = snap.docs
-          .where((doc) => (doc.data()['status'] ?? '').toString() == 'completed')
-          .length;
-    });
+        .listen((snap) => completedTasks.value = snap.docs.length);
 
     // Active campaigns
     _db
@@ -112,7 +97,7 @@ class ManagerHomeController extends GetxController {
         .listen((snap) {
       final items = snap.docs.map((doc) {
         final d = Map<String, dynamic>.from(doc.data());
-        d['id'] = doc.id; // docId add karo taake detail screen use kar sake
+        d['id'] = doc.id;
         return d;
       }).toList();
 

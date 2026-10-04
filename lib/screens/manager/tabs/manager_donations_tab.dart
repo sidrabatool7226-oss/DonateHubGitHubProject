@@ -4,10 +4,12 @@ import 'package:get/get.dart';
 import '../../../controllers/manager_donations_controller.dart';
 import '../screens/fund_donation_detail_screen.dart';
 import '../screens/resource_donation_detail_screen.dart';
-import '../screens/manager_profile_screen.dart';
+import '../../../widgets/admin_page_kit.dart';
+import '../../../widgets/manager_back_button.dart';
 
 class ManagerDonationsTab extends StatelessWidget {
-  const ManagerDonationsTab({super.key});
+  final VoidCallback? onBack;
+  const ManagerDonationsTab({super.key, this.onBack});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -20,167 +22,151 @@ class ManagerDonationsTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ─────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.fromLTRB(
-                20,
-                16,
-                20,
-                16,
-              ),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_emerald, _mint],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
+        child: AdminPageScroll(
+          child: Column(
+            children: [
+              // Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(
+                  20,
+                  16,
+                  20,
+                  16,
                 ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_emerald, _mint],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                  ),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(28),
+                    bottomRight: Radius.circular(28),
+                  ),
                 ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Donations',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Get.to(
-                              () => const ManagerProfileScreen(),
-                          transition: Transition.rightToLeft,
-                        ),
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color:
-                            Colors.white.withOpacity(0.18),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.person_outline_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-
-                  const SizedBox(height: 14),
-
-                  // Fund / Resource toggle
-                  Obx(
-                        () => Container(
-                      decoration: BoxDecoration(
-                        color: Colors.white.withOpacity(0.18),
-                        borderRadius:
-                        BorderRadius.circular(14),
-                      ),
-                      padding: const EdgeInsets.all(4),
-                      child: Row(
-                        children: [
-                          _ToggleBtn(
-                            label: 'Fund',
-                            icon:
-                            Icons.payments_outlined,
-                            isSelected:
-                            controller.selectedType.value ==
-                                'fund',
-                            onTap: () =>
-                            controller.selectedType.value =
-                            'fund',
-                          ),
-                          _ToggleBtn(
-                            label: 'Resource',
-                            icon:
-                            Icons.inventory_2_outlined,
-                            isSelected:
-                            controller.selectedType.value ==
-                                'resource',
-                            onTap: () =>
-                            controller.selectedType.value =
-                            'resource',
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            // ── Status Tabs ────────────────────────────────────────
-            Container(
-              color: Colors.white,
-              padding:
-              const EdgeInsets.symmetric(vertical: 10),
-              child: Obx(
-                    () => Row(
-                  children: controller.statusTabs.map((s) {
-                    final isSel =
-                        controller.selectedStatus.value == s;
-
-                    return Expanded(
-                      child: GestureDetector(
-                        onTap: () => controller
-                            .selectedStatus.value = s,
-                        child: Column(
-                          children: [
-                            Text(
-                              s[0].toUpperCase() +
-                                  s.substring(1),
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: isSel
-                                    ? _emerald
-                                    : Colors.grey[400],
-                                fontWeight: isSel
-                                    ? FontWeight.w700
-                                    : FontWeight.w400,
-                              ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        ManagerBackButton(onBack: onBack),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Donations',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
-                            const SizedBox(height: 6),
-                            Container(
-                              height: 2,
-                              margin:
-                              const EdgeInsets.symmetric(
-                                horizontal: 24,
-                              ),
-                              color: isSel
-                                  ? _emerald
-                                  : Colors.transparent,
+                          ),
+                        ),
+                      ],
+                    ),
+
+                    const SizedBox(height: 14),
+
+                    Obx(
+                          () => Container(
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.18),
+                          borderRadius:
+                          BorderRadius.circular(14),
+                        ),
+                        padding: const EdgeInsets.all(4),
+                        child: Row(
+                          children: [
+                            _ToggleBtn(
+                              label: 'Fund',
+                              icon:
+                              Icons.payments_outlined,
+                              isSelected:
+                              controller.selectedType.value ==
+                                  'fund',
+                              onTap: () =>
+                              controller.selectedType.value =
+                              'fund',
+                            ),
+                            _ToggleBtn(
+                              label: 'Resource',
+                              icon:
+                              Icons.inventory_2_outlined,
+                              isSelected:
+                              controller.selectedType.value ==
+                                  'resource',
+                              onTap: () =>
+                              controller.selectedType.value =
+                              'resource',
                             ),
                           ],
                         ),
                       ),
-                    );
-                  }).toList(),
+                    ),
+                  ],
                 ),
               ),
-            ),
 
-            // ── List ──────────────────────────────────────────────
-            Expanded(
-              child: StreamBuilder<QuerySnapshot>(
+              //  Status Tabs
+              Container(
+                color: Colors.white,
+                padding:
+                const EdgeInsets.symmetric(vertical: 10),
+                child: Obx(
+                      () => Row(
+                    children: controller.statusTabs.map((s) {
+                      final isSel =
+                          controller.selectedStatus.value == s;
+
+                      return Expanded(
+                        child: GestureDetector(
+                          onTap: () => controller
+                              .selectedStatus.value = s,
+                          child: Column(
+                            children: [
+                              Text(
+                                s[0].toUpperCase() +
+                                    s.substring(1),
+                                style: TextStyle(
+                                  fontSize: 13,
+                                  color: isSel
+                                      ? _emerald
+                                      : Colors.grey[400],
+                                  fontWeight: isSel
+                                      ? FontWeight.w700
+                                      : FontWeight.w400,
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                height: 2,
+                                margin:
+                                const EdgeInsets.symmetric(
+                                  horizontal: 24,
+                                ),
+                                color: isSel
+                                    ? _emerald
+                                    : Colors.transparent,
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    }).toList(),
+                  ),
+                ),
+              ),
+
+              // List
+              StreamBuilder<QuerySnapshot>(
                 stream: controller.donationsStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState ==
                       ConnectionState.waiting) {
-                    return const Center(
-                      child: CircularProgressIndicator(
-                        color: _emerald,
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(
+                        child: CircularProgressIndicator(
+                          color: _emerald,
+                        ),
                       ),
                     );
                   }
@@ -204,8 +190,6 @@ class ManagerDonationsTab extends StatelessWidget {
                   final docs =
                       snapshot.data?.docs ?? [];
 
-                  // GetX MUST be here because the Rx values
-                  // are being read inside this filtering section.
                   return Obx(() {
                     final selectedType =
                         controller.selectedType.value;
@@ -213,8 +197,6 @@ class ManagerDonationsTab extends StatelessWidget {
                     final selectedStatus =
                         controller.selectedStatus.value;
 
-                    // Type filter + status filter
-                    // done client-side.
                     final filteredDocs =
                     docs.where((doc) {
                       final data =
@@ -237,11 +219,6 @@ class ManagerDonationsTab extends StatelessWidget {
                       final status =
                       (data['status'] ?? 'pending')
                           .toString();
-
-                      // FIXED (Bug 3) — donations that moved past 'approved' (pickup_assigned,
-                      // completed, in_transit...) matched no tab and vanished from the
-                      // list. The 'Approved' tab now also holds every donation that is
-                      // neither pending nor rejected.
                       final statusMatches = selectedStatus == 'approved'
                           ? (status != 'pending' && status != 'rejected')
                           : status == selectedStatus;
@@ -251,19 +228,24 @@ class ManagerDonationsTab extends StatelessWidget {
                     }).toList();
 
                     if (filteredDocs.isEmpty) {
-                      return _EmptyState(
-                        type: selectedType,
-                        status: selectedStatus,
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 60),
+                        child: _EmptyState(
+                          type: selectedType,
+                          status: selectedStatus,
+                        ),
                       );
                     }
 
                     return ListView.builder(
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
                       padding:
                       const EdgeInsets.fromLTRB(
                         16,
                         12,
                         16,
-                        16,
+                        24,
                       ),
                       itemCount: filteredDocs.length,
                       itemBuilder:
@@ -285,8 +267,8 @@ class ManagerDonationsTab extends StatelessWidget {
                   });
                 },
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
@@ -491,8 +473,6 @@ class _DonationCard extends StatelessWidget {
                     ),
                   ),
 
-                  // NEW — approved resource donation that still needs a
-                  // volunteer; tap the card and use "Assign Volunteer".
                   if (!isFund &&
                       (data['status'] ?? '').toString() == 'approved') ...[
                     const SizedBox(height: 6),

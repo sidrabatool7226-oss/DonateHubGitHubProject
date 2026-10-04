@@ -90,7 +90,6 @@ class CreateTaskScreen extends StatelessWidget {
             ])),
             const SizedBox(height: 14),
 
-            // NEW — Blood Donation only: which blood group is needed (optional)
             Obx(() {
               if (controller.selectedCategory.value != 'Blood Donation') return const SizedBox();
               final selected = controller.selectedBloodGroup.value;
@@ -312,7 +311,8 @@ class _VolunteerMatchCard extends StatelessWidget {
           Obx(() => SizedBox(
             width: double.infinity, height: 42,
             child: ElevatedButton.icon(
-              onPressed: controller.isSaving.value ? null : () async {
+              onPressed: () async {
+                if (controller.isSaving.value) return; // already saving — ignore extra taps
                 bool ok = await controller.createAndAssignTask(
                   volunteerId: volunteer['uid'],
                   volunteerName: name,

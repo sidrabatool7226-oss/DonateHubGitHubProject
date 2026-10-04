@@ -23,19 +23,17 @@ class _ManagerDashboardState extends State<ManagerDashboard> {
     ManagerHomeTab(
       onGoToProfile: () => setState(() => _currentIndex = 4),
       onGoToActiveTasks: () {
-        // open Tasks tab on its "Active" section
         Get.put(ManagerTasksController()).selectedTab.value = 1;
         setState(() => _currentIndex = 3);
       },
       onGoToCompletedTasks: () {
-        // NEW — open Tasks tab on its "Completed" section
         Get.put(ManagerTasksController()).selectedTab.value = 3;
         setState(() => _currentIndex = 3);
       },
     ),
-    const ManagerVolunteersTab(),
-    const ManagerDonationsTab(),
-    const ManagerTasksTab(),
+    ManagerVolunteersTab(onBack: () => setState(() => _currentIndex = 0)),
+    ManagerDonationsTab(onBack: () => setState(() => _currentIndex = 0)),
+    ManagerTasksTab(onBack: () => setState(() => _currentIndex = 0)),
     ManagerProfileTab(onBack: () => setState(() => _currentIndex = 0)),
   ];
 

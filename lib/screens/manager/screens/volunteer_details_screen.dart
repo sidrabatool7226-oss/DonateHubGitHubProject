@@ -36,8 +36,10 @@ class VolunteerDetailsScreen extends StatelessWidget {
     final bool isRejected = stage == 'Rejected';
     final bool canScheduleVideo =
         stage == 'Pending' || stage == 'Form_Reviewed';
-    final bool canSchedulePhysical =
-        stage == 'Video_Scheduled' || stage == 'Physical_Scheduled';
+    final bool canSchedulePhysical = stage == 'Pending' ||
+        stage == 'Form_Reviewed' ||
+        stage == 'Video_Scheduled' ||
+        stage == 'Physical_Scheduled';
     final bool canDecide = !isVerified && !isRejected;
 
     String appliedDate = '';
@@ -86,7 +88,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // ── Profile Card ────────────────────────────────
                   _ProfileHeaderCard(
                     name: name,
                     email: email,
@@ -96,7 +97,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // ── CNIC Number ──────────────────────────────────
                   if (cnicNumber.isNotEmpty) ...[
                     _SectionCard(
                       title: 'CNIC Number',
@@ -114,7 +114,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     const SizedBox(height: 14),
                   ],
 
-                  // ── Preferred Roles ─────────────────────────────
                   _SectionCard(
                     title: 'Volunteer Roles',
                     icon: Icons.category_rounded,
@@ -159,10 +158,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // ── Availability (verified volunteers only) ───────
-                  // CHANGED — pending / scheduled / rejected volunteers cannot take
-                  // tasks yet, so their availability is not shown. For verified
-                  // volunteers it also shows whether they are online right now.
                   if (isVerified) ...[
                     _SectionCard(
                       title: 'Weekly Availability',
@@ -214,7 +209,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 14),
 
-                    // ── Specific Dates ──────────────────────────────
                     _SectionCard(
                       title: 'Specific Dates',
                       icon: Icons.event_available_rounded,
@@ -225,7 +219,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
                     const SizedBox(height: 14),
                   ],
 
-                  // ── Past Experience ────────────────────────────────
                   _SectionCard(
                     title: 'Past Experience',
                     icon: Icons.work_history_outlined,
@@ -247,7 +240,7 @@ class VolunteerDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // ── CNIC Images ─────────────────────────────────
+                  //  CNIC Images
                   _SectionCard(
                     title: 'Identity Verification (CNIC)',
                     icon: Icons.credit_card_rounded,
@@ -267,7 +260,6 @@ class VolunteerDetailsScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 14),
 
-                  // ── Schedule status info (if any) ────────────────
                   if (stage == 'Video_Scheduled') ...[
                     _InfoBanner(
                       icon: Icons.videocam_rounded,
@@ -822,9 +814,7 @@ class VolunteerDetailsScreen extends StatelessWidget {
   }
 }
 
-// ==========================================================================
 // AVAILABILITY SCHEDULE VIEW
-// ==========================================================================
 class _AvailabilityScheduleView extends StatelessWidget {
   final dynamic scheduleData;
 
@@ -945,10 +935,6 @@ class _AvailabilityScheduleView extends StatelessWidget {
     );
   }
 }
-
-// ==========================================================================
-// SPECIAL DATES VIEW
-// ==========================================================================
 class _SpecialDatesView extends StatelessWidget {
   final dynamic specialData;
 
@@ -1042,10 +1028,6 @@ class _SpecialDatesView extends StatelessWidget {
     );
   }
 }
-
-// ==========================================================================
-// PROFILE HEADER CARD
-// ==========================================================================
 class _ProfileHeaderCard extends StatelessWidget {
   final String name;
   final String email;
@@ -1180,9 +1162,6 @@ class _ProfileHeaderCard extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// SECTION CARD
-// ==========================================================================
 class _SectionCard extends StatelessWidget {
   final String title;
   final IconData icon;
@@ -1252,10 +1231,6 @@ class _SectionCard extends StatelessWidget {
     );
   }
 }
-
-// ==========================================================================
-// CNIC IMAGE
-// ==========================================================================
 class _CnicImage extends StatelessWidget {
   final String label;
   final String url;
@@ -1339,9 +1314,6 @@ class _CnicImage extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// INFO BANNER
-// ==========================================================================
 class _InfoBanner extends StatelessWidget {
   final IconData icon;
   final Color color;
@@ -1412,9 +1384,6 @@ class _InfoBanner extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// ACTION OUTLINE BUTTON
-// ==========================================================================
 class _ActionOutlineBtn extends StatelessWidget {
   final IconData icon;
   final String label;
@@ -1465,9 +1434,6 @@ class _ActionOutlineBtn extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// SHEET WIDGETS
-// ==========================================================================
 class _SheetHandle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

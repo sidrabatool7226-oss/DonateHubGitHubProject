@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 
 import '../services/cloudinary_service.dart';
 import '../services/picked_image.dart';
-import '../models/sponsorship_categories.dart'; // NEW
+import '../models/sponsorship_categories.dart';
 
 class CampaignController extends GetxController {
   final FirebaseFirestore _db =
@@ -19,16 +19,11 @@ class CampaignController extends GetxController {
   StreamSubscription<QuerySnapshot>?
   _donationsSubscription;
 
-  // ── Observables ─────────────────────────────────────────────
   var isLoading = false.obs;
   var selectedImage = Rxn<PickedImage>();
 
-  // NEW — lets one entry be a Campaign, a Project, or a Sponsor-a-Child
-  // card, all stored in the SAME 'campaigns' collection (no new
-  // collection/controller needed — reuses everything that already works).
-  // Existing docs without this field are treated as 'campaign' everywhere
-  // they're read.
-  var selectedCategory = 'campaign'.obs; // 'campaign' | 'project' | 'sponsorship'
+
+  var selectedCategory = 'campaign'.obs;
 
   // Form controllers
   final titleController =
@@ -42,13 +37,8 @@ class CampaignController extends GetxController {
 
   final endDateController =
   TextEditingController();
-
-  // NEW — only used when selectedCategory == 'sponsorship'. A child
-  // entry has no start/end date (it's an open-ended program, not a
-  // time-bound drive), so this replaces endDateController for that case.
   final ageController = TextEditingController();
 
-  // Needs checkboxes
   var selectedNeeds = <String>[].obs;
 
   final List<String> allNeeds = [
@@ -83,31 +73,21 @@ class CampaignController extends GetxController {
     super.onClose();
   }
 
-  // ── Raised Amount Sync ──────────────────────────────────────
   void _listenForCampaignRaisedAmounts() {
     _donationsSubscription = _db
         .collection('donations')
-        .snapshots(includeMetadataChanges: true) // FIXED (Bug 10) — so the cache -> server transition also raises an event
+        .snapshots(includeMetadataChanges: true)
         .listen((snapshot) async {
-      // FIXED (Bug 10) — never recompute totals from data that is only in the local
-      // cache or still has unacknowledged local writes. On mobile the first snapshot
-      // can come from a partial cache and used to WRITE a too-small total to Firestore.
       if (snapshot.metadata.isFromCache || snapshot.metadata.hasPendingWrites) return;
       try {
         await _syncCampaignRaisedAmounts(
           snapshot.docs,
         );
       } catch (_) {
-        // Campaign UI aur existing system ko crash nahi karna.
       }
     });
   }
 
-  // FIXED (Bug 10) — this listener used to start a new async sync for every donations
-  // change without waiting for the previous one. Two overlapping runs could finish out
-  // of order, so an OLDER snapshot's total could overwrite a newer, correct one and
-  // stay wrong until the next donation change. Now only one sync runs at a time, and
-  // while it runs only the LATEST snapshot is remembered and processed afterwards.
   bool _raisedSyncRunning = false;
   List<QueryDocumentSnapshot>? _pendingRaisedSyncDocs;
 
@@ -126,7 +106,6 @@ class CampaignController extends GetxController {
         try {
           await _doSyncCampaignRaisedAmounts(next);
         } catch (_) {
-          // Same as before: a failed sync must never crash the Campaign UI.
         }
         next = _pendingRaisedSyncDocs;
       }
@@ -135,7 +114,6 @@ class CampaignController extends GetxController {
     }
   }
 
-  // The original sync body — unchanged, only renamed so the wrapper above can call it.
   Future<void> _doSyncCampaignRaisedAmounts(
       List<QueryDocumentSnapshot> donations,
       ) async {
@@ -154,11 +132,6 @@ class CampaignController extends GetxController {
       final campaignData =
       campaignDoc.data();
 
-      // NEW — a child's "collected" amount means current active
-      // monthly sponsorship coverage, not a lifetime donation sum —
-      // a different concept computed separately (sponsorships
-      // collection), so this generic campaign/project sync must not
-      // touch sponsorship-category docs.
       if ((campaignData['category'] ?? 'campaign') == 'sponsorship') {
         continue;
       }
@@ -274,7 +247,7 @@ class CampaignController extends GetxController {
     }
   }
 
-  // ── Pick Image ────────────────────────────────────────────── (CHANGED)
+  // Pick Image
   Future<void> pickImage() async {
     final XFile? image =
     await ImagePicker().pickImage(
@@ -285,7 +258,7 @@ class CampaignController extends GetxController {
     selectedImage.value = await PickedImage.fromXFile(image);
   }
 
-  // ── Toggle Need ─────────────────────────────────────────────
+  // Toggle Need
   void toggleNeed(String need) {
     if (selectedNeeds.contains(need)) {
       selectedNeeds.remove(need);
@@ -294,41 +267,30 @@ class CampaignController extends GetxController {
     }
   }
 
-  // ── Select Type (Campaign / Project / Sponsor a Child) ───────
-  // NEW — centralizes what changes when the Admin switches the
-  // "Type" chip, instead of the UI setting selectedCategory.value
-  // directly. A child's monthly amount is a FIXED, program-wide
-  // figure (the 6 sponsorship categories always sum to Rs. 30,000 —
-  // see SponsorshipCategories.fullMonthlyAmount in
-  // lib/models/sponsorship_categories.dart), so it is set
-  // automatically here rather than left for the Admin to type and
-  // possibly get wrong.
   void selectCategory(String value) {
     selectedCategory.value = value;
     if (value == 'sponsorship') {
       goalController.text = '30000';
     } else if (goalController.text == '30000') {
-      // Only clear if it still holds the auto-filled sponsorship
-      // value — an Admin's own typed 30000 for a real campaign is
-      // left untouched.
+
       goalController.clear();
     }
   }
 
-  // ── Clear Form ──────────────────────────────────────────────
+  // Clear Form
   void clearForm() {
     titleController.clear();
     descController.clear();
     goalController.clear();
     endDateController.clear();
-    ageController.clear(); // NEW
+    ageController.clear();
 
     selectedImage.value = null;
     selectedNeeds.clear();
-    selectedCategory.value = 'campaign'; // NEW
+    selectedCategory.value = 'campaign';
   }
 
-  // ── Add Campaign ──────────────────────────────────────────── (CHANGED upload line only)
+  // Add Campaign
   Future<bool> addCampaign() async {
     final bool isSponsorship = selectedCategory.value == 'sponsorship';
 
@@ -347,9 +309,6 @@ class CampaignController extends GetxController {
       return false;
     }
 
-    // NEW — a child card is far less useful without a photo and age,
-    // so these are required only for the sponsorship type. Campaign
-    // and Project keep exactly the validation they had before.
     if (isSponsorship &&
         (ageController.text.trim().isEmpty || selectedImage.value == null)) {
       Get.snackbar(
@@ -395,9 +354,8 @@ class CampaignController extends GetxController {
         endDateController.text.trim(),
         'needs':
         selectedNeeds.toList(),
-        'category': selectedCategory.value, // NEW — campaign | project | sponsorship
-        'age': ageController.text.trim(), // NEW — sponsorship only; empty otherwise
-        'isActive': true,
+        'category': selectedCategory.value,
+        'age': ageController.text.trim(),
         'createdAt':
         FieldValue.serverTimestamp(),
       });
@@ -436,7 +394,7 @@ class CampaignController extends GetxController {
     }
   }
 
-  // ── Delete Campaign ─────────────────────────────────────────
+  //  Delete Campaign
   Future<void> deleteCampaign(
       String docId,
       ) async {
@@ -468,7 +426,7 @@ class CampaignController extends GetxController {
     }
   }
 
-  // ── Toggle Active ───────────────────────────────────────────
+  //  Toggle Active
   Future<void> toggleActive(
       String docId,
       bool current,
@@ -481,7 +439,6 @@ class CampaignController extends GetxController {
     });
   }
 
-  // ── Real-time Stream ────────────────────────────────────────
   Stream<QuerySnapshot>
   get campaignsStream => _db
       .collection('campaigns')

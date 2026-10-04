@@ -1,8 +1,3 @@
-// ============================================================
-// FILE: lib/controllers/admin_donations_controller.dart
-// CHANGE (this pass): addFormImage File → PickedImage for web support.
-// Everything else UNCHANGED from previous version.
-// ============================================================
 
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
@@ -176,10 +171,6 @@ class AdminDonationsController extends GetxController {
     final tsField = _timestampFieldForStatus(newStatus);
 
     if (newStatus == 'completed') {
-      // Award donor reward points here ONLY if this donation didn't
-      // already get rewarded via the volunteer-task completion flow
-      // (manager_tasks_controller.dart) — 'rewardGiven' flag prevents
-      // double-counting if a donation somehow passes through both paths.
       final doc = await _db.collection('donations').doc(docId).get();
       final data = doc.data() ?? {};
       final bool alreadyRewarded = data['rewardGiven'] == true;
@@ -235,7 +226,7 @@ class AdminDonationsController extends GetxController {
   String _statusLabel(String status) =>
       status.split('_').map((w) => w.isEmpty ? '' : w[0].toUpperCase() + w.substring(1)).join(' ');
 
-  // ── Add Donation form actions ──────────────────────────────── (CHANGED)
+  // Add Donation form actions
   Future<void> pickAddFormImage() async {
     final XFile? img = await _picker.pickImage(source: ImageSource.gallery, imageQuality: 75);
     if (img != null) {

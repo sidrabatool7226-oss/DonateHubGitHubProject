@@ -2,14 +2,15 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/manager_tasks_controller.dart';
-import '../../../widgets/admin_page_kit.dart'; // NEW — whole-page scroll (shared widget)
+import '../../../widgets/admin_page_kit.dart';
+import '../../../widgets/manager_back_button.dart';
 import '../screens/assign_volunteer_screen.dart';
 import '../screens/task_detail_screen.dart';
-import '../screens/manager_profile_screen.dart';
 import '../screens/create_task_screen.dart';
 
 class ManagerTasksTab extends StatelessWidget {
-  const ManagerTasksTab({super.key});
+  final VoidCallback? onBack;
+  const ManagerTasksTab({super.key, this.onBack});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -28,8 +29,6 @@ class ManagerTasksTab extends StatelessWidget {
         label: const Text('Create Task', style: TextStyle(color: Colors.white, fontSize: 13, fontWeight: FontWeight.w600)),
       ),
       body: SafeArea(
-        // CHANGED — the whole page (header, tabs and the list) scrolls together.
-        // Before, each list scrolled on its own inside a fixed header.
         child: AdminPageScroll(
           child: Column(
             children: [
@@ -41,21 +40,11 @@ class ManagerTasksTab extends StatelessWidget {
                 ),
                 child: Row(
                   children: [
+                    ManagerBackButton(onBack: onBack),
+                    const SizedBox(width: 12),
                     const Expanded(
                       child: Text('Task Assignment',
                           style: TextStyle(color: Colors.white, fontSize: 20, fontWeight: FontWeight.bold)),
-                    ),
-                    GestureDetector(
-                      onTap: () => Get.to(() => const ManagerProfileScreen(),
-                          transition: Transition.rightToLeft),
-                      child: Container(
-                        width: 38, height: 38,
-                        decoration: BoxDecoration(
-                          color: Colors.white.withOpacity(0.18),
-                          shape: BoxShape.circle,
-                        ),
-                        child: const Icon(Icons.person_outline_rounded, color: Colors.white, size: 20),
-                      ),
                     ),
                   ],
                 ),
@@ -91,8 +80,6 @@ class ManagerTasksTab extends StatelessWidget {
                 }),
               ),
 
-              // CHANGED — only the selected list is built (it needs unbounded
-              // height inside the page scroll, so IndexedStack could not be used).
               Obx(() {
                 switch (controller.selectedTab.value) {
                   case 1:
@@ -236,9 +223,6 @@ class _ActiveTasksList extends StatelessWidget {
         final allDocs = snapshot.data?.docs ?? [];
         final docs = allDocs.where((d) {
           final status = (d.data() as Map)['status'];
-          // CHANGED — 'rejected' tasks are listed too, so the manager can
-          // reassign them. Before, a task the volunteer rejected disappeared
-          // from every list and its donation was stuck.
           return status == 'assigned' || status == 'accepted' || status == 'rejected';
         }).toList()
           ..sort((a, b) {
@@ -263,8 +247,8 @@ class _ActiveTasksList extends StatelessWidget {
             final bool timedOut = controller.isTimedOut(data);
             final Duration? remaining = controller.timeRemaining(data);
             final String status = data['status'] ?? 'assigned';
-            final bool isRejected = status == 'rejected'; // NEW
-            final bool needsReassign = timedOut || isRejected; // NEW
+            final bool isRejected = status == 'rejected';
+            final bool needsReassign = timedOut || isRejected;
             final String title = data['title'] ?? data['itemName'] ?? 'Task';
             final String category = data['taskCategory'] ?? '';
 
@@ -323,7 +307,6 @@ class _ActiveTasksList extends StatelessWidget {
                   ),
                   const SizedBox(height: 10),
 
-                  // NEW — why the volunteer rejected it
                   if (isRejected) ...[
                     Container(
                       width: double.infinity,
@@ -580,7 +563,6 @@ class _CompletedTasksList extends StatelessWidget {
   }
 }
 
-// NEW — loading indicator that works inside the page scroll (unbounded height)
 class _Loading extends StatelessWidget {
   const _Loading();
 
@@ -600,7 +582,6 @@ class _EmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // CHANGED — vertical padding so it sits nicely inside the page scroll
     return Padding(
       padding: const EdgeInsets.symmetric(vertical: 60),
       child: Center(

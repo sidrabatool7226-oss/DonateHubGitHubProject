@@ -3,10 +3,12 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../../../controllers/manager_volunteers_controller.dart';
 import '../screens/volunteer_details_screen.dart';
-import '../screens/manager_profile_screen.dart';
+import '../../../widgets/admin_page_kit.dart';
+import '../../../widgets/manager_back_button.dart';
 
 class ManagerVolunteersTab extends StatelessWidget {
-  const ManagerVolunteersTab({super.key});
+  final VoidCallback? onBack;
+  const ManagerVolunteersTab({super.key, this.onBack});
 
   static const Color _emerald = Color(0xFF0F6E4F);
   static const Color _mint = Color(0xFF2FBF87);
@@ -19,131 +21,117 @@ class ManagerVolunteersTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        child: Column(
-          children: [
-            // ── Header ─────────────────────────────────────────────
-            Container(
-              padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  colors: [_emerald, _mint],
-                  begin: Alignment.topLeft,
-                  end: Alignment.bottomRight,
-                ),
-                borderRadius: BorderRadius.only(
-                  bottomLeft: Radius.circular(28),
-                  bottomRight: Radius.circular(28),
-                ),
-              ),
-              child: Column(
-                children: [
-                  Row(
-                    children: [
-                      const Expanded(
-                        child: Text(
-                          'Volunteer Verification',
-                          style: TextStyle(
-                            color: Colors.white,
-                            fontSize: 20,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                      GestureDetector(
-                        onTap: () => Get.to(
-                              () => const ManagerProfileScreen(),
-                          transition: Transition.rightToLeft,
-                        ),
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: Colors.white.withOpacity(0.18),
-                            shape: BoxShape.circle,
-                          ),
-                          child: const Icon(
-                            Icons.person_outline_rounded,
-                            color: Colors.white,
-                            size: 20,
-                          ),
-                        ),
-                      ),
-                    ],
+        child: AdminPageScroll(
+          child: Column(
+            children: [
+              //  Header
+              Container(
+                padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
+                decoration: const BoxDecoration(
+                  gradient: LinearGradient(
+                    colors: [_emerald, _mint],
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
                   ),
-                  const SizedBox(height: 14),
-
-                  // Search
-                  Container(
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: Colors.white,
-                      borderRadius: BorderRadius.circular(14),
-                    ),
-                    child: TextField(
-                      onChanged: (v) => controller.searchQuery.value = v,
-                      style: const TextStyle(fontSize: 13),
-                      decoration: InputDecoration(
-                        hintText: 'Search volunteers...',
-                        hintStyle:
-                        TextStyle(color: Colors.grey[400], fontSize: 13),
-                        prefixIcon: Icon(Icons.search,
-                            color: Colors.grey[400], size: 20),
-                        border: InputBorder.none,
-                        contentPadding:
-                        const EdgeInsets.symmetric(vertical: 12),
-                      ),
-                    ),
+                  borderRadius: BorderRadius.only(
+                    bottomLeft: Radius.circular(28),
+                    bottomRight: Radius.circular(28),
                   ),
-                ],
-              ),
-            ),
-            // ── Status Tabs ────────────────────────────────────────
-            Container(
-              color: Colors.white,
-              padding: const EdgeInsets.symmetric(vertical: 10),
-              child: Obx(() {
-                final selected = controller.selectedTab.value; // explicit read yahan
-                return SizedBox(
-                  height: 36,
-                  child: SingleChildScrollView(
-                    scrollDirection: Axis.horizontal,
-                    padding: const EdgeInsets.symmetric(horizontal: 16),
-                    child: Row(
-                      children: List.generate(controller.tabLabels.length, (index) {
-                        final isSel = selected == index;
-                        return GestureDetector(
-                          onTap: () => controller.selectedTab.value = index,
-                          child: Container(
-                            margin: const EdgeInsets.only(right: 8),
-                            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
-                            decoration: BoxDecoration(
-                              color: isSel ? _emerald : const Color(0xFFF4FAF7),
-                              borderRadius: BorderRadius.circular(20),
-                              border: Border.all(color: isSel ? _emerald : Colors.grey.shade300),
+                ),
+                child: Column(
+                  children: [
+                    Row(
+                      children: [
+                        ManagerBackButton(onBack: onBack),
+                        const SizedBox(width: 12),
+                        const Expanded(
+                          child: Text(
+                            'Volunteer Verification',
+                            style: TextStyle(
+                              color: Colors.white,
+                              fontSize: 20,
+                              fontWeight: FontWeight.bold,
                             ),
-                            child: Text(
-                              controller.tabLabels[index],
-                              style: TextStyle(
-                                fontSize: 12.5,
-                                color: isSel ? Colors.white : Colors.grey[700],
-                                fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 14),
+
+                    // Search
+                    Container(
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(14),
+                      ),
+                      child: TextField(
+                        onChanged: (v) => controller.searchQuery.value = v,
+                        style: const TextStyle(fontSize: 13),
+                        decoration: InputDecoration(
+                          hintText: 'Search volunteers...',
+                          hintStyle:
+                          TextStyle(color: Colors.grey[400], fontSize: 13),
+                          prefixIcon: Icon(Icons.search,
+                              color: Colors.grey[400], size: 20),
+                          border: InputBorder.none,
+                          contentPadding:
+                          const EdgeInsets.symmetric(vertical: 12),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              // Status Tabs
+              Container(
+                color: Colors.white,
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Obx(() {
+                  final selected = controller.selectedTab.value; // explicit read yahan
+                  return SizedBox(
+                    height: 36,
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      padding: const EdgeInsets.symmetric(horizontal: 16),
+                      child: Row(
+                        children: List.generate(controller.tabLabels.length, (index) {
+                          final isSel = selected == index;
+                          return GestureDetector(
+                            onTap: () => controller.selectedTab.value = index,
+                            child: Container(
+                              margin: const EdgeInsets.only(right: 8),
+                              padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 7),
+                              decoration: BoxDecoration(
+                                color: isSel ? _emerald : const Color(0xFFF4FAF7),
+                                borderRadius: BorderRadius.circular(20),
+                                border: Border.all(color: isSel ? _emerald : Colors.grey.shade300),
+                              ),
+                              child: Text(
+                                controller.tabLabels[index],
+                                style: TextStyle(
+                                  fontSize: 12.5,
+                                  color: isSel ? Colors.white : Colors.grey[700],
+                                  fontWeight: isSel ? FontWeight.w700 : FontWeight.w400,
+                                ),
                               ),
                             ),
-                          ),
-                        );
-                      }),
+                          );
+                        }),
+                      ),
                     ),
-                  ),
-                );
-              }),
-            ),
-            // ── List ──────────────────────────────────────────────
-            Expanded(
-              child: Obx(() => StreamBuilder<QuerySnapshot>(
+                  );
+                }),
+              ),
+              // List
+              Obx(() => StreamBuilder<QuerySnapshot>(
                 stream: controller.volunteersStream,
                 builder: (context, snapshot) {
                   if (snapshot.connectionState == ConnectionState.waiting) {
-                    return const Center(child: CircularProgressIndicator(color: _emerald));
+                    return const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 60),
+                      child: Center(child: CircularProgressIndicator(color: _emerald)),
+                    );
                   }
                   if (snapshot.hasError) {
                     return Center(
@@ -159,23 +147,25 @@ class ManagerVolunteersTab extends StatelessWidget {
                   }
                   final allDocs = snapshot.data?.docs ?? [];
 
-                  // CHANGED — search is read inside its own Obx. Before, it was read
-                  // inside the StreamBuilder callback (outside GetX tracking), so
-                  // typing in the search bar never rebuilt the list.
                   return Obx(() {
-                    final query = controller.searchQuery.value; // explicit read
+                    final query = controller.searchQuery.value;
                     final docs = controller.filterBySearch(allDocs);
 
                     if (docs.isEmpty) {
-                      return _EmptyState(
-                        label: query.trim().isNotEmpty
-                            ? 'matching'
-                            : controller.tabLabels[controller.selectedTab.value],
+                      return Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 48),
+                        child: _EmptyState(
+                          label: query.trim().isNotEmpty
+                              ? 'matching'
+                              : controller.tabLabels[controller.selectedTab.value],
+                        ),
                       );
                     }
 
                     return ListView.builder(
-                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
+                      shrinkWrap: true,
+                      physics: const NeverScrollableScrollPhysics(),
+                      padding: const EdgeInsets.fromLTRB(16, 12, 16, 24),
                       itemCount: docs.length,
                       itemBuilder: (context, index) {
                         final doc = docs[index];
@@ -190,17 +180,15 @@ class ManagerVolunteersTab extends StatelessWidget {
                   });
                 },
               )),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
   }
 }
 
-// ==========================================================================
 // VOLUNTEER CARD
-// ==========================================================================
 class _VolunteerCard extends StatelessWidget {
   final String docId;
   final Map<String, dynamic> data;
@@ -320,9 +308,6 @@ class _VolunteerCard extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// STAGE BADGE
-// ==========================================================================
 class _StageBadge extends StatelessWidget {
   final String stage;
   const _StageBadge({required this.stage});
@@ -383,9 +368,7 @@ class _StageBadge extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// EMPTY STATE
-// ==========================================================================
+
 class _EmptyState extends StatelessWidget {
   final String label;
   const _EmptyState({required this.label});

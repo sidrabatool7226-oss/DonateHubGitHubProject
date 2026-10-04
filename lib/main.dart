@@ -4,8 +4,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart'; // NEW
-import 'controllers/theme_controller.dart'; // NEW
-import 'theme/app_theme.dart'; // NEW
 import 'services/fcm_service.dart';
 import 'screens/admin/screens/utilization_detail_screen.dart';
 import 'screens/admin/screens/create_utilization_screen.dart';
@@ -43,7 +41,6 @@ Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // NEW — GetStorage init, required before any read/write
   await GetStorage.init();
 
   await SystemChrome.setPreferredOrientations([
@@ -64,8 +61,6 @@ void main() async {
 
   await FcmService().initialize();
 
-  // NEW — theme controller must exist before GetMaterialApp builds
-  Get.put(ThemeController(), permanent: true);
 
   runApp(const DonateHubApp());
 }
@@ -75,17 +70,11 @@ class DonateHubApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final themeController = Get.find<ThemeController>();
 
-    // NEW — Obx wraps GetMaterialApp so theme changes rebuild instantly,
-    // app-wide, without requiring a restart.
     return Obx(() => GetMaterialApp(
       title: 'DonateHub',
       debugShowCheckedModeBanner: false,
       initialBinding: InitialBinding(),
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: themeController.flutterThemeMode,
       initialRoute: '/',
       getPages: [
         GetPage(name: '/', page: () => const SplashScreen()),
@@ -100,10 +89,6 @@ class DonateHubApp extends StatelessWidget {
         GetPage(name: '/donor_dashboard', page: () => const DonorDashboard()),
         GetPage(
           name: '/donation_detail',
-          // FIXED — this previously always built DonationDetailScreen
-          // with a hardcoded empty docId/data, so notification taps
-          // that navigate here via Get.toNamed(..., arguments: {...})
-          // (see notifications_screen.dart) opened a blank screen.
           page: () {
             final args = Get.arguments;
             final Map<String, dynamic> argMap =

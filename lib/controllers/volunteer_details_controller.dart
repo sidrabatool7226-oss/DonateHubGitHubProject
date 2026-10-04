@@ -1,17 +1,3 @@
-// ============================================================
-// FILE: lib/controllers/volunteer_details_controller.dart
-//
-// CHANGE: approveVolunteer() now:
-//   1. Reads the volunteer's CURRENT verificationStage before
-//      updating, to determine online vs physical verification
-//      (derived from existing data — Physical_Scheduled → physical,
-//      anything else → online).
-//   2. Sends the "Volunteer Verification Successful" email via
-//      EmailJS exactly once, guarded by a new 'approvalEmailSent'
-//      flag on the volunteer's user document.
-// Everything else in this file is unchanged.
-// ============================================================
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:flutter/material.dart';
@@ -57,7 +43,7 @@ class VolunteerDetailsController extends GetxController {
     super.onClose();
   }
 
-  // ── Pick Video Call Date ──────────────────────────────────────────────
+  //  Pick Video Call Date
   Future<void> pickVideoDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
@@ -101,7 +87,7 @@ class VolunteerDetailsController extends GetxController {
     }
   }
 
-  // ── Pick Physical Visit Date/Time ────────────────────────────────────
+  // Pick Physical Visit Date/Time
   Future<void> pickPhysicalDate(BuildContext context) async {
     final picked = await showDatePicker(
       context: context,
@@ -120,8 +106,17 @@ class VolunteerDetailsController extends GetxController {
 
     if (picked != null) {
       selectedPhysicalDate = picked;
+      const days = [
+        'Monday',
+        'Tuesday',
+        'Wednesday',
+        'Thursday',
+        'Friday',
+        'Saturday',
+        'Sunday',
+      ];
       physicalDateController.text =
-      '${picked.month}/${picked.day}/${picked.year}';
+      '${days[picked.weekday - 1]}, ${picked.month}/${picked.day}/${picked.year}';
     }
   }
 
@@ -145,7 +140,7 @@ class VolunteerDetailsController extends GetxController {
     }
   }
 
-  // ── Schedule Video Call ───────────────────────────────────────────────
+  //  Schedule Video Call
   Future<bool> scheduleVideoCall(String volunteerId) async {
     if (videoDateController.text.trim().isEmpty ||
         videoTimeController.text.trim().isEmpty ||
@@ -209,7 +204,7 @@ class VolunteerDetailsController extends GetxController {
     }
   }
 
-  // ── Schedule Physical Visit ───────────────────────────────────────────
+  // Schedule Physical Visit
   Future<bool> schedulePhysicalVisit(String volunteerId) async {
     if (physicalDateController.text.trim().isEmpty ||
         physicalTimeController.text.trim().isEmpty ||
@@ -274,14 +269,10 @@ class VolunteerDetailsController extends GetxController {
     }
   }
 
-  // ── Approve Volunteer ─────────────────────────────────────────────────
-  // CHANGED: now reads prior verificationStage to know online vs physical,
-  // and sends the verification email exactly once (idempotent).
   Future<bool> approveVolunteer(String volunteerId) async {
     isSaving.value = true;
 
     try {
-      // NEW — read current state BEFORE updating
       final docSnap =
       await _db.collection('users').doc(volunteerId).get();
 
@@ -320,7 +311,7 @@ class VolunteerDetailsController extends GetxController {
         'createdAt': FieldValue.serverTimestamp(),
       });
 
-      // NEW — send email exactly once
+      //  send email exactly once
       if (!alreadyEmailed && volunteerEmail.isNotEmpty) {
         final bool emailSent =
         await _emailService.sendVolunteerVerificationEmail(
@@ -361,7 +352,7 @@ class VolunteerDetailsController extends GetxController {
     }
   }
 
-  // ── Reject Volunteer (UNCHANGED — no email per requirements) ─────────
+  // Reject Volunteer
   Future<bool> rejectVolunteer(String volunteerId) async {
     if (rejectReasonController.text.trim().isEmpty) {
       Get.snackbar(

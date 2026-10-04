@@ -9,13 +9,12 @@ import '../tabs/manager_tasks_tab.dart';
 import '../screens/fund_donation_detail_screen.dart';
 import '../screens/resource_donation_detail_screen.dart';
 import '../screens/manager_campaigns_screen.dart';
-import '../../../widgets/notification_bell_icon.dart'; // NEW
-import '../screens/general_fund_screen.dart'; // NEW
-
+import '../../../widgets/notification_bell_icon.dart';
+import '../screens/general_fund_screen.dart';
 class ManagerHomeTab extends StatelessWidget {
-  final VoidCallback? onGoToProfile; // NEW
-  final VoidCallback? onGoToActiveTasks; // NEW
-  final VoidCallback? onGoToCompletedTasks; // NEW — opens Tasks tab on its "Completed" section
+  final VoidCallback? onGoToProfile;
+  final VoidCallback? onGoToActiveTasks;
+  final VoidCallback? onGoToCompletedTasks;
   const ManagerHomeTab({super.key, this.onGoToProfile, this.onGoToActiveTasks, this.onGoToCompletedTasks});
 
   static const Color _emerald = Color(0xFF0F6E4F);
@@ -29,8 +28,6 @@ class ManagerHomeTab extends StatelessWidget {
     return Scaffold(
       backgroundColor: _bg,
       body: SafeArea(
-        // CHANGED — the WHOLE page scrolls (header, cards and recent activity
-        // together). Before, only the Recent Activity box scrolled on its own.
         child: SingleChildScrollView(
           child: Column(
             children: [
@@ -61,9 +58,7 @@ class ManagerHomeTab extends StatelessWidget {
   }
 }
 
-// ==========================================================================
 // HEADER
-// ==========================================================================
 
 class _Header extends StatelessWidget {
   final ManagerHomeController controller;
@@ -151,22 +146,17 @@ class _Header extends StatelessWidget {
   }
 }
 
-// ==========================================================================
 // STATS GRID
-// ==========================================================================
-
 class _StatsGrid extends StatelessWidget {
   final ManagerHomeController controller;
-  final VoidCallback? onGoToActiveTasks; // NEW
-  final VoidCallback? onGoToCompletedTasks; // NEW
+  final VoidCallback? onGoToActiveTasks;
+  final VoidCallback? onGoToCompletedTasks;
 
   const _StatsGrid({required this.controller, this.onGoToActiveTasks, this.onGoToCompletedTasks});
 
   @override
   Widget build(BuildContext context) {
-    // CHANGED — two fixed-height rows instead of a GridView with an aspect
-    // ratio. Every card now has the same fixed height and equal width, so the
-    // content can no longer overflow / get cut on narrow phones.
+
     return Obx(
           () => Column(
         children: [
@@ -227,8 +217,8 @@ class _StatsGrid extends StatelessWidget {
               Expanded(
                 child: _StatCard(
                   icon: Icons.check_circle_rounded,
-                  label: 'Completed Today',
-                  value: '${controller.completedToday.value}',
+                  label: 'Completed Tasks',
+                  value: '${controller.completedTasks.value}',
                   color: const Color(0xFF2FBF87),
                   bg: const Color(0xFFE6F9F1),
                   onTap: () {
@@ -335,9 +325,9 @@ class _StatCard extends StatelessWidget {
   }
 }
 
-// ==========================================================================
+
 // RECENT ACTIVITY
-// ==========================================================================
+
 
 class _RecentActivityCard extends StatelessWidget {
   final ManagerHomeController controller;
@@ -612,9 +602,8 @@ class _ActivityTile extends StatelessWidget {
   }
 }
 
-// ==========================================================================
+
 // CAMPAIGNS
-// ==========================================================================
 
 class _CampaignsButton extends StatelessWidget {
   final ManagerHomeController controller;
@@ -749,9 +738,7 @@ class _CampaignsButton extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// GENERAL FUND BUTTON (NEW)
-// ==========================================================================
+// GENERAL FUND BUTTON
 class _GeneralFundButton extends StatelessWidget {
   const _GeneralFundButton();
 

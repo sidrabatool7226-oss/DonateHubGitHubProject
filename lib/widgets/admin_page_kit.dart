@@ -1,14 +1,3 @@
-// ============================================================
-// FILE: lib/widgets/admin_page_kit.dart   (NEW)
-// Shared by the admin tabs (mobile + web):
-//  - AdminPageScroll : whole-page vertical scroll (header + filters + list
-//                      scroll together) with its own controller and a
-//                      visible scrollbar on web.
-//  - AdminBackButton : round arrow used in tab headers, takes the admin
-//                      back to the Home tab (works on app and web because
-//                      both use AdminNavController).
-// ============================================================
-
 import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -45,7 +34,7 @@ class _AdminPageScrollState extends State<AdminPageScroll> {
 }
 
 class AdminBackButton extends StatelessWidget {
-  final double size; // NEW — web headers use a larger one; every existing caller keeps 36
+  final double size;
   const AdminBackButton({super.key, this.size = 36});
 
   @override
@@ -62,7 +51,7 @@ class AdminBackButton extends StatelessWidget {
             shape: BoxShape.circle,
           ),
           child: Icon(Icons.arrow_back_ios_new_rounded,
-              color: Colors.white, size: size >= 40 ? 20 : 16),
+              color: Colors.white, size: size * 0.44),
         ),
       ),
     );

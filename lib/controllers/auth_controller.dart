@@ -7,14 +7,11 @@ class AuthController extends GetxController {
   final FirebaseAuth _auth = FirebaseAuth.instance;
   final FirebaseFirestore _db = FirebaseFirestore.instance;
 
-  // Observable variables — .obs lagao to UI automatically update hogi
   var isLoading = false.obs;
   var errorMessage = ''.obs;
   var currentUserRole = ''.obs;
 
-  // ========================================================================
   // LOGIN
-  // ========================================================================
   Future<void> login(String email, String password) async {
     try {
       isLoading.value = true;
@@ -38,9 +35,8 @@ class AuthController extends GetxController {
     }
   }
 
-  // ========================================================================
-  // ROLE CHECK — sahi dashboard pe bhejo
-  // ========================================================================
+
+
   Future<void> _routeByRole(String uid) async {
     DocumentSnapshot userDoc =
     await _db.collection('users').doc(uid).get();
@@ -77,18 +73,14 @@ class AuthController extends GetxController {
     }
   }
 
-  // ========================================================================
   // LOGOUT
-  // ========================================================================
+
   Future<void> logout() async {
     await _auth.signOut();
     currentUserRole.value = '';
     Get.offAllNamed('/login');
   }
 
-  // ========================================================================
-  // ERROR MESSAGES
-  // ========================================================================
   String _getErrorMessage(String code) {
     switch (code) {
       case 'user-not-found':

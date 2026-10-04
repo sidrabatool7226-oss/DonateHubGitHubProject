@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:firebase_auth/firebase_auth.dart'; // FIXED (Bug 8) — current manager's uid for the unread badge
+import 'package:firebase_auth/firebase_auth.dart';
 import '../../../services/auth_service.dart';
 import '../../../controllers/manager_tasks_controller.dart';
 import '../../../widgets/web_dashboard_shell.dart';
@@ -11,7 +11,7 @@ import '../tabs/manager_tasks_tab.dart';
 import '../tabs/manager_profile_tab.dart';
 import 'manager_home_tab_web.dart';
 import '../screens/manager_profile_screen.dart';
-import '../../admin/screens/shared/notifications_screen.dart'; // FIXED (Bug 8) — same screen the mobile bell and Admin web already use
+import '../../admin/screens/shared/notifications_screen.dart';
 class ManagerWebDashboard extends StatefulWidget {
   const ManagerWebDashboard({super.key});
 
@@ -36,19 +36,19 @@ class _ManagerWebDashboardState extends State<ManagerWebDashboard> {
   late final List<Widget> _pages = [
     ManagerHomeTabWeb(
       onGoToActiveTasks: () {
-        // open Tasks page on its "Active" section
+        // open Tasks page on its Active section
         Get.put(ManagerTasksController()).selectedTab.value = 1;
         setState(() => _currentIndex = 3);
       },
       onGoToCompletedTasks: () {
-        // NEW — open Tasks page on its "Completed" section
+        // open Tasks page on its "Completed" section
         Get.put(ManagerTasksController()).selectedTab.value = 3;
         setState(() => _currentIndex = 3);
       },
     ),
-    const ManagerVolunteersTab(),
-    const ManagerDonationsTab(),
-    const ManagerTasksTab(),
+    ManagerVolunteersTab(onBack: () => setState(() => _currentIndex = 0)), // NEW — back arrow
+    ManagerDonationsTab(onBack: () => setState(() => _currentIndex = 0)), // NEW — back arrow
+    ManagerTasksTab(onBack: () => setState(() => _currentIndex = 0)), // NEW — back arrow
     ManagerProfileTab(onBack: () => setState(() => _currentIndex = 0)),
   ];
 
