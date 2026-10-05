@@ -95,6 +95,19 @@ class ProfileController extends GetxController {
       return;
     }
 
+    final String phone = phoneController.text.trim();
+    if (phone.isNotEmpty && !RegExp(r'^\d{11}$').hasMatch(phone)) {
+      Get.snackbar(
+        'Invalid Phone',
+        'Phone number must be exactly 11 digits (e.g. 03001234567).',
+        snackPosition: SnackPosition.BOTTOM,
+        backgroundColor: Colors.red[50],
+        colorText: Colors.red[700],
+        margin: const EdgeInsets.all(16),
+      );
+      return;
+    }
+
     isSaving.value = true;
     try {
       final uid = _auth.currentUser?.uid;
@@ -275,19 +288,36 @@ class ProfileController extends GetxController {
     }
 
     // Search filter
-    if (searchQuery.value.isNotEmpty) {
-      list = list
-          .where((f) =>
-      (f['message'] ?? '')
-          .toLowerCase()
-          .contains(searchQuery.value.toLowerCase()) ||
-          (f['userName'] ?? '')
-              .toLowerCase()
-              .contains(searchQuery.value.toLowerCase()))
-          .toList();
+    final String q = searchQuery.value.trim().toLowerCase();
+    if (q.isNotEmpty) {
+      list = list.where((f) {
+        final String text = [
+          f['message'],
+          f['userName'],
+          f['userEmail'],
+          f['suggestions'],
+          f['appComment'],
+        ].map((v) => (v ?? '').toString().toLowerCase()).join(' ');
+        return text.contains(q);
+      }).toList();
     }
 
     return list;
+  }
+
+  int countFor(String filter) {
+    switch (filter) {
+      case 'Donor':
+        return feedbackList.where((f) => (f['userRole'] ?? '') == 'donor').length;
+      case 'Volunteer':
+        return feedbackList.where((f) => (f['userRole'] ?? '') == 'volunteer').length;
+      case 'Reviewed':
+        return feedbackList.where((f) => (f['isReviewed'] ?? false) == true).length;
+      case 'Pending':
+        return feedbackList.where((f) => (f['isReviewed'] ?? false) == false).length;
+      default:
+        return feedbackList.length;
+    }
   }
 
   // ── Mark as Reviewed ─────────────────────────────────────────────────

@@ -7,6 +7,7 @@ import 'package:get/get.dart';
 import '../../admin/screens/shared/notifications_screen.dart';
 import '../screens/about_us_screen.dart';
 import '../screens/help_support_screen.dart';
+import '../screens/volunteer_feedback_screen.dart';
 import '../../../services/phone_validator.dart'; // NEW
 
 class VolunteerProfileTab extends StatefulWidget {
@@ -519,6 +520,18 @@ class _VolunteerProfileTabState extends State<VolunteerProfileTab> {
                               const Color(0xFF6A1B9A),
                               onTap: () =>
                                   _showChangePassword(context),
+                            ),
+
+                            _MenuItem(
+                              icon: Icons.rate_review_outlined,
+                              label: 'Give Volunteering Experience Feedback',
+                              color:
+                              const Color(0xFFFFA000),
+                              onTap: () => Get.to(
+                                    () =>
+                                const VolunteerFeedbackScreen(),
+                                transition: Transition.rightToLeft,
+                              ),
                             ),
 
                             _MenuItem(

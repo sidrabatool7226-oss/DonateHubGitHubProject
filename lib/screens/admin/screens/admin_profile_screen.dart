@@ -1,5 +1,6 @@
 import 'package:donatehub_android_studio/screens/admin/screens/shared/notifications_screen.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:get/get.dart';
 import '../../../controllers/profile_controller.dart';
 import '../../manager/screens/rewards_overview_screen.dart'; // NEW — shared with Manager
@@ -941,11 +942,15 @@ class _EditProfileSheet
             label:
             'Phone Number',
             hint:
-            'e.g. 0300-1234567',
+            '03001234567',
             icon:
             Icons.phone_outlined,
             keyboardType:
             TextInputType.phone,
+            inputFormatters: [
+              FilteringTextInputFormatter.digitsOnly,
+              LengthLimitingTextInputFormatter(11),
+            ],
           ),
 
           const SizedBox(
@@ -1325,7 +1330,7 @@ class _FeedbackSheet
                   decoration:
                   InputDecoration(
                     hintText:
-                    'Search feedback...',
+                    'Search by name, email or feedback...',
                     hintStyle:
                     TextStyle(
                       color:
@@ -1423,7 +1428,7 @@ class _FeedbackSheet
                               ),
                             ),
                             child: Text(
-                              filter,
+                              '$filter (${controller.countFor(filter)})',
                               style:
                               TextStyle(
                                 fontSize: 12,
@@ -1612,8 +1617,9 @@ class _FeedbackCard
                 ),
                 child:
                 Text(
-                  name[0]
-                      .toUpperCase(),
+                  name.isNotEmpty
+                      ? name[0].toUpperCase()
+                      : '?',
                   style:
                   TextStyle(
                     color:
@@ -1785,6 +1791,8 @@ class _FeedbackCard
             ),
           ),
 
+          _VolunteerFeedbackExtras(data: data),
+
           if (!isReviewed &&
               docId.isNotEmpty) ...[
             const SizedBox(
@@ -1870,6 +1878,7 @@ class _SheetField
   final IconData icon;
   final bool isPassword;
   final TextInputType keyboardType;
+  final List<TextInputFormatter>? inputFormatters;
 
   const _SheetField({
     required this.controller,
@@ -1879,6 +1888,7 @@ class _SheetField
     this.isPassword = false,
     this.keyboardType =
         TextInputType.text,
+    this.inputFormatters,
   });
 
   @override
@@ -1916,6 +1926,8 @@ class _SheetFieldState
               _obscure,
           keyboardType:
           widget.keyboardType,
+          inputFormatters:
+          widget.inputFormatters,
           style:
           const TextStyle(
             fontSize: 13,
@@ -2141,4 +2153,170 @@ class _MenuItem {
     required this.color,
     required this.onTap,
   });
+}
+
+class _VolunteerFeedbackExtras extends StatelessWidget {
+  final Map<String, dynamic> data;
+
+  const _VolunteerFeedbackExtras({required this.data});
+
+  static const Color _green = Color(0xFF1B6B3A);
+
+  static const Map<String, String> _aspects = {
+    'taskClarity': 'Task clarity and instructions',
+    'coordination': 'Coordination and manager support',
+    'communication': 'Communication and response time',
+    'safety': 'Safety and working conditions',
+    'recognition': 'Appreciation and recognition',
+  };
+
+  int _int(dynamic v) => v is num ? v.toInt() : 0;
+
+  Widget _stars(int value, double size) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: List.generate(
+        5,
+            (i) => Icon(
+          i < value ? Icons.star_rounded : Icons.star_outline_rounded,
+          size: size,
+          color: i < value ? Colors.amber[600] : Colors.grey[300],
+        ),
+      ),
+    );
+  }
+
+  Widget _tag(String text) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+      decoration: BoxDecoration(
+        color: const Color(0xFFE3F2FD),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Text(
+        text,
+        style: const TextStyle(
+          fontSize: 10.5,
+          color: Color(0xFF1565C0),
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (data['feedbackType'] != 'volunteer_experience') {
+      return const SizedBox.shrink();
+    }
+
+    final dynamic rawRatings = data['ratings'];
+    final Map<String, dynamic> ratings = rawRatings is Map
+        ? Map<String, dynamic>.from(rawRatings)
+        : <String, dynamic>{};
+    final String recommend = (data['recommend'] ?? '').toString();
+    final String keepGoing = (data['continueVolunteering'] ?? '').toString();
+    final String suggestions = (data['suggestions'] ?? '').toString().trim();
+    final int appRating = _int(data['appRating']);
+    final String appComment = (data['appComment'] ?? '').toString().trim();
+
+    final List<Widget> children = [];
+
+    final aspectRows =
+    _aspects.entries.where((e) => _int(ratings[e.key]) > 0).toList();
+    if (aspectRows.isNotEmpty) {
+      children.add(const Text(
+        'Experience ratings',
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: _green,
+        ),
+      ));
+      children.add(const SizedBox(height: 8));
+      for (final e in aspectRows) {
+        children.add(Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Row(
+            children: [
+              Expanded(
+                child: Text(
+                  e.value,
+                  style: TextStyle(fontSize: 11.5, color: Colors.grey[700]),
+                ),
+              ),
+              _stars(_int(ratings[e.key]), 13),
+            ],
+          ),
+        ));
+      }
+    }
+
+    final List<Widget> tags = [
+      if (recommend.isNotEmpty) _tag('Recommends: $recommend'),
+      if (keepGoing.isNotEmpty) _tag('Continue: $keepGoing'),
+    ];
+    if (tags.isNotEmpty) {
+      if (children.isNotEmpty) children.add(const SizedBox(height: 4));
+      children.add(Wrap(spacing: 6, runSpacing: 6, children: tags));
+    }
+
+    if (suggestions.isNotEmpty) {
+      if (children.isNotEmpty) children.add(const SizedBox(height: 10));
+      children.add(const Text(
+        'Suggestions',
+        style: TextStyle(
+          fontSize: 11.5,
+          fontWeight: FontWeight.w700,
+          color: _green,
+        ),
+      ));
+      children.add(const SizedBox(height: 3));
+      children.add(Text(
+        suggestions,
+        style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
+      ));
+    }
+
+    if (appRating > 0 || appComment.isNotEmpty) {
+      if (children.isNotEmpty) children.add(const SizedBox(height: 10));
+      children.add(Row(
+        children: [
+          const Text(
+            'DonateHub app',
+            style: TextStyle(
+              fontSize: 11.5,
+              fontWeight: FontWeight.w700,
+              color: _green,
+            ),
+          ),
+          const SizedBox(width: 8),
+          if (appRating > 0) _stars(appRating, 14),
+        ],
+      ));
+      if (appComment.isNotEmpty) {
+        children.add(const SizedBox(height: 3));
+        children.add(Text(
+          appComment,
+          style: TextStyle(fontSize: 12, color: Colors.grey[700], height: 1.35),
+        ));
+      }
+    }
+
+    if (children.isEmpty) return const SizedBox.shrink();
+
+    return Container(
+      width: double.infinity,
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: const Color(0xFFF4F6F8),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: children,
+      ),
+    );
+  }
 }

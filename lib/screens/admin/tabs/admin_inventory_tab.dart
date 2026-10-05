@@ -1,14 +1,3 @@
-// ============================================================
-// FILE: lib/screens/admin/tabs/admin_inventory_tab.dart
-//
-// CHANGE: 'Fund' is now a selectable type filter. Fund donation
-// cards route to the SAME FundDonationDetailScreen already built
-// for Manager (Phase 4) — reused directly, not duplicated, with
-// Admin's own green theme colors passed in. Resource donations
-// (Online/Desk-based/Volunteer Pickup) still route to the
-// existing DonationFullDetailScreen — completely unchanged.
-// ============================================================
-
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -36,7 +25,6 @@ class AdminInventoryTab extends StatelessWidget {
         child: AdminPageScroll(
           child: Column(
             children: [
-              // ── Header ─────────────────────────────────────────────
               Container(
                 padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
                 decoration: const BoxDecoration(
@@ -86,7 +74,6 @@ class AdminInventoryTab extends StatelessWidget {
                   ],
                 ),
               ),
-              // ── Total Funds Card — NAYA ─────────────────────────────────────────
               GetBuilder<FinancialSummaryController>(
                 init: FinancialSummaryController(),
                 builder: (fc) => Obx(() {
@@ -119,7 +106,6 @@ class AdminInventoryTab extends StatelessWidget {
                   );
                 }),
               ),
-              // ── Summary Row ────────────────────────────────────────
               Obx(() => Container(
                 color: Colors.white,
                 padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
@@ -136,7 +122,6 @@ class AdminInventoryTab extends StatelessWidget {
                 ),
               )),
 
-              // ── Type Filter Tabs (now includes 'Fund') ─────────────
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.only(bottom: 10),
@@ -172,7 +157,6 @@ class AdminInventoryTab extends StatelessWidget {
                 }),
               ),
 
-              // ── Category Filter Chips ───────────────────────────────
               Container(
                 color: Colors.white,
                 padding: const EdgeInsets.only(bottom: 10),
@@ -208,7 +192,6 @@ class AdminInventoryTab extends StatelessWidget {
                 }),
               ),
 
-              // ── List ──────────────────────────────────────────────
               Obx(() {
                 final loading = controller.isLoading.value;
                 final search = controller.searchQuery.value;
@@ -260,9 +243,6 @@ class AdminInventoryTab extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// SUMMARY CHIP
-// ==========================================================================
 class _SummaryChip extends StatelessWidget {
   final String label;
   final int value;
@@ -286,10 +266,6 @@ class _SummaryChip extends StatelessWidget {
     );
   }
 }
-
-// ==========================================================================
-// DONATION CARD — routes to fund vs resource detail screens
-// ==========================================================================
 class _DonationCard extends StatelessWidget {
   final Map<String, dynamic> data;
   final AdminDonationsController controller;
@@ -317,7 +293,6 @@ class _DonationCard extends StatelessWidget {
     final bool isFund = data['type'] == 'fund' || data.containsKey('amount');
     final String itemName = isFund ? '' : (data['itemName'] ?? 'Item');
     final String category = data['category'] ?? '';
-// NAYA — safe hai
     final int quantity = safeParseQty(data['quantity']);
     final double amount = (data['amount'] ?? 0).toDouble();
     final String campaignName = data['campaignName'] ?? '';
@@ -461,10 +436,6 @@ class _EmptyState extends StatelessWidget {
     );
   }
 }
-
-// ==========================================================================
-// ADD DONATION SHEET (resource donations only — unchanged from before)
-// ==========================================================================
 class _AddDonationSheet extends StatelessWidget {
   final AdminDonationsController controller;
   const _AddDonationSheet({required this.controller});
