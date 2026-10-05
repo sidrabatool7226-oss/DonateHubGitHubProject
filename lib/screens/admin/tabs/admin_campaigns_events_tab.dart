@@ -7,7 +7,7 @@ import 'package:image_picker/image_picker.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import '../screens/event_participants_screen.dart';
 import '../../../widgets/picked_image_preview.dart';
-import '../screens/admin_general_fund_screen.dart'; // NEW
+import '../screens/admin_general_fund_screen.dart';
 import '../../../controllers/admin_nav_controller.dart';
 import '../../../widgets/admin_page_kit.dart';
 class AdminCampaignsEventsTab extends StatefulWidget {
@@ -18,23 +18,15 @@ class AdminCampaignsEventsTab extends StatefulWidget {
       _AdminCampaignsEventsTabState();
 }
 
-// CHANGED — Events is no longer hidden. A segmented toggle now switches
-// this whole tab between "Fundraising" (Campaigns/Projects/Sponsorships)
-// and "Events" (volunteer coordination) — two genuinely different admin
-// jobs that don't belong mixed into one undifferentiated list, but also
-// don't need two separate bottom-nav tabs.
 class _AdminCampaignsEventsTabState
     extends State<AdminCampaignsEventsTab> {
   static const Color _green = Color(0xFF1B6B3A);
-  static const Color _blue = Color(0xFF1565C0);
 
-  int _selectedTab = 0; // 0 = Fundraising, 1 = Events
+  int _selectedTab = 0;
   Worker? _navWorker;
   @override
   void initState() {
     super.initState();
-    // Sync with AdminNavController so "Add Event" / stat-card taps
-    // from Home actually switch this tab, not just the controller's value.
     final nav = Get.find<AdminNavController>();
     _selectedTab = nav.campaignEventsTabIndex.value;
     _navWorker = ever(nav.campaignEventsRequestId, (_) {
@@ -61,13 +53,10 @@ class _AdminCampaignsEventsTabState
         child: AdminPageScroll(
           child: Column(
             children: [
-              // ── Header ─────────────────────────────────────────────
               Container(
                 decoration: BoxDecoration(
                   gradient: LinearGradient(
-                    colors: isEvents
-                        ? [_blue, const Color(0xFF1E88E5)]
-                        : const [Color(0xFF1B6B3A), Color(0xFF2D8A52)],
+                    colors: [_green, const Color(0xFF2D8A52)],
                     begin: Alignment.topLeft,
                     end: Alignment.bottomRight,
                   ),
@@ -79,7 +68,7 @@ class _AdminCampaignsEventsTabState
                     children: [
                       Row(
                         children: [
-                          const AdminBackButton(), // NEW — back to Home tab
+                          const AdminBackButton(),
                           const SizedBox(width: 12),
                           Expanded(
                             child: Column(
@@ -106,8 +95,6 @@ class _AdminCampaignsEventsTabState
                               ],
                             ),
                           ),
-                          // General Fund quick access — only relevant to
-                          // Fundraising, hidden on the Events segment.
                           if (!isEvents)
                             GestureDetector(
                               onTap: () => Get.to(
@@ -126,7 +113,6 @@ class _AdminCampaignsEventsTabState
                                 child: const Icon(Icons.savings_rounded, color: Colors.white, size: 18),
                               ),
                             ),
-                          // Add button
                           Builder(builder: (ctx) {
                             return GestureDetector(
                               onTap: () => isEvents
@@ -166,7 +152,6 @@ class _AdminCampaignsEventsTabState
                         ],
                       ),
                       const SizedBox(height: 14),
-                      // NEW — Fundraising / Events segmented toggle
                       Container(
                         padding: const EdgeInsets.all(3),
                         decoration: BoxDecoration(
@@ -199,8 +184,6 @@ class _AdminCampaignsEventsTabState
                 ),
               ),
 
-              // ── List ─────────────────────────────────────────────────
-              // CHANGED — no Expanded; the whole page scrolls (AdminPageScroll).
               isEvents
                   ? _EventsList(controller: eventController)
                   : _CampaignsList(controller: campaignController),
@@ -243,9 +226,6 @@ class _AdminCampaignsEventsTabState
   }
 }
 
-// ==========================================================================
-// SEGMENT BUTTON (NEW) — Fundraising / Events toggle
-// ==========================================================================
 class _SegmentButton extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -290,9 +270,6 @@ class _SegmentButton extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// CAMPAIGNS LIST — Improved UI
-// ==========================================================================
 class _CampaignsList extends StatelessWidget {
   final CampaignController controller;
   const _CampaignsList({required this.controller});
@@ -322,7 +299,6 @@ class _CampaignsList extends StatelessWidget {
           );
         }
 
-        // CHANGED — list no longer scrolls on its own; the whole page does.
         return ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -343,9 +319,6 @@ class _CampaignsList extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// IMPROVED CAMPAIGN CARD
-// ==========================================================================
 class _CampaignCard extends StatelessWidget {
   final String docId;
   final Map<String, dynamic> data;
@@ -374,8 +347,6 @@ class _CampaignCard extends StatelessWidget {
     final double progress =
     goal > 0 ? (collected / goal).clamp(0.0, 1.0) : 0.0;
     final int percent = (progress * 100).toInt();
-    // NEW — 'campaign' | 'project' | 'sponsorship'; older docs without
-    // this field are treated as plain campaigns.
     final String category =
     (data['category'] ?? 'campaign').toString();
     final String categoryLabel = _categoryLabel(category);
@@ -396,7 +367,6 @@ class _CampaignCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // ── Banner Image ─────────────────────────────────────────
           Stack(
             children: [
               ClipRRect(
@@ -414,7 +384,6 @@ class _CampaignCard extends StatelessWidget {
                     : _placeholder(),
               ),
 
-              // Gradient overlay
               Positioned.fill(
                 child: ClipRRect(
                   borderRadius: const BorderRadius.vertical(
@@ -434,7 +403,6 @@ class _CampaignCard extends StatelessWidget {
                 ),
               ),
 
-              // Category badge — NEW (top-left; Active/Inactive keeps top-right)
               Positioned(
                 top: 12,
                 left: 12,
@@ -456,7 +424,6 @@ class _CampaignCard extends StatelessWidget {
                 ),
               ),
 
-              // Status badge
               Positioned(
                 top: 12,
                 right: 12,
@@ -498,7 +465,6 @@ class _CampaignCard extends StatelessWidget {
                 ),
               ),
 
-              // Progress % overlay
               Positioned(
                 bottom: 12,
                 left: 12,
@@ -527,7 +493,6 @@ class _CampaignCard extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                // Title
                 Text(
                   title,
                   style: const TextStyle(
@@ -538,7 +503,6 @@ class _CampaignCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 6),
 
-                // Description
                 Text(
                   description,
                   style: TextStyle(
@@ -551,7 +515,6 @@ class _CampaignCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
 
-                // Progress bar
                 ClipRRect(
                   borderRadius: BorderRadius.circular(6),
                   child: LinearProgressIndicator(
@@ -565,7 +528,6 @@ class _CampaignCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 8),
 
-                // Amount row
                 Row(
                   mainAxisAlignment:
                   MainAxisAlignment.spaceBetween,
@@ -615,7 +577,6 @@ class _CampaignCard extends StatelessWidget {
                   ],
                 ),
 
-                // End date
                 if (endDate.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Row(
@@ -634,7 +595,6 @@ class _CampaignCard extends StatelessWidget {
                   ),
                 ],
 
-                // Needs chips
                 if (needs.isNotEmpty) ...[
                   const SizedBox(height: 10),
                   Wrap(
@@ -677,7 +637,6 @@ class _CampaignCard extends StatelessWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 12),
 
-                // Actions
                 Row(
                   children: [
                     Expanded(
@@ -763,9 +722,6 @@ class _CampaignCard extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// ACTION BUTTON
-// ==========================================================================
 class _ActionBtn extends StatelessWidget {
   final String label;
   final IconData icon;
@@ -811,14 +767,11 @@ class _ActionBtn extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// EVENTS LIST — Improved UI
-// ==========================================================================
 class _EventsList extends StatelessWidget {
   final EventController controller;
   const _EventsList({required this.controller});
 
-  static const Color _blue = Color(0xFF1565C0);
+  static const Color _green = Color(0xFF1B6B3A);
 
   @override
   Widget build(BuildContext context) {
@@ -829,7 +782,7 @@ class _EventsList extends StatelessWidget {
           return const Padding(
             padding: EdgeInsets.symmetric(vertical: 60),
             child: Center(
-              child: CircularProgressIndicator(color: _blue),
+              child: CircularProgressIndicator(color: _green),
             ),
           );
         }
@@ -843,7 +796,6 @@ class _EventsList extends StatelessWidget {
           );
         }
 
-        // CHANGED — list no longer scrolls on its own; the whole page does.
         return ListView.builder(
           shrinkWrap: true,
           physics: const NeverScrollableScrollPhysics(),
@@ -864,9 +816,6 @@ class _EventsList extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// IMPROVED EVENT CARD
-// ==========================================================================
 class _EventCard extends StatelessWidget {
   final String docId;
   final Map<String, dynamic> data;
@@ -878,8 +827,7 @@ class _EventCard extends StatelessWidget {
     required this.controller,
   });
 
-  static const Color _blue = Color(0xFF1565C0);
-  static const Color _green = Color(0xFF1B6B3A); // NEW — for "fully staffed" state
+  static const Color _green = Color(0xFF1B6B3A);
 
   String _monthName(String month) {
     const months = [
@@ -912,7 +860,7 @@ class _EventCard extends StatelessWidget {
     final bool isActive = data['isActive'] ?? true;
     final int volunteersNeeded = (data['volunteersNeeded'] ?? 0) is int
         ? data['volunteersNeeded'] ?? 0
-        : int.tryParse(data['volunteersNeeded'].toString()) ?? 0; // NEW
+        : int.tryParse(data['volunteersNeeded'].toString()) ?? 0;
 
     final List<String> dateParts =
     startDate.isNotEmpty ? startDate.split('/') : [];
@@ -932,11 +880,10 @@ class _EventCard extends StatelessWidget {
       ),
       child: Column(
         children: [
-          // ── Blue Header ─────────────────────────────────────────
           Container(
             decoration: BoxDecoration(
               gradient: LinearGradient(
-                colors: [_blue, _blue.withOpacity(0.8)],
+                colors: [_green, _green.withOpacity(0.8)],
               ),
               borderRadius: const BorderRadius.vertical(
                   top: Radius.circular(20)),
@@ -944,7 +891,6 @@ class _EventCard extends StatelessWidget {
             padding: const EdgeInsets.all(16),
             child: Row(
               children: [
-                // Date box
                 Container(
                   width: 56,
                   height: 56,
@@ -963,7 +909,7 @@ class _EventCard extends StatelessWidget {
                         style: const TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.bold,
-                          color: _blue,
+                          color: _green,
                         ),
                       ),
                       Text(
@@ -1022,7 +968,6 @@ class _EventCard extends StatelessWidget {
                   ),
                 ),
 
-                // Status
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 8, vertical: 4),
@@ -1052,7 +997,6 @@ class _EventCard extends StatelessWidget {
               crossAxisAlignment:
               CrossAxisAlignment.start,
               children: [
-                // Banner image
                 if (imageUrl.isNotEmpty) ...[
                   ClipRRect(
                     borderRadius:
@@ -1069,7 +1013,6 @@ class _EventCard extends StatelessWidget {
                   const SizedBox(height: 12),
                 ],
 
-                // Description
                 Text(
                   description,
                   style: TextStyle(
@@ -1082,12 +1025,11 @@ class _EventCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 12),
 
-                // Date range chip
                 Container(
                   padding: const EdgeInsets.symmetric(
                       horizontal: 14, vertical: 8),
                   decoration: BoxDecoration(
-                    color: const Color(0xFFE3F2FD),
+                    color: const Color(0xFFE8F5E9),
                     borderRadius:
                     BorderRadius.circular(10),
                   ),
@@ -1097,7 +1039,7 @@ class _EventCard extends StatelessWidget {
                       const Icon(
                           Icons.calendar_month_outlined,
                           size: 14,
-                          color: _blue),
+                          color: _green),
                       const SizedBox(width: 6),
                       Text(
                         startDate == endDate
@@ -1105,7 +1047,7 @@ class _EventCard extends StatelessWidget {
                             : '$startDate → $endDate',
                         style: const TextStyle(
                           fontSize: 12,
-                          color: _blue,
+                          color: _green,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -1117,8 +1059,6 @@ class _EventCard extends StatelessWidget {
                 const Divider(height: 1),
                 const SizedBox(height: 12),
 
-                // CHANGED — now shows progress against volunteersNeeded
-                // when the admin specified a target, not just a raw count.
                 Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   child: GestureDetector(
@@ -1151,9 +1091,7 @@ class _EventCard extends StatelessWidget {
                           padding: const EdgeInsets.symmetric(
                               horizontal: 12, vertical: 10),
                           decoration: BoxDecoration(
-                            color: isFull
-                                ? const Color(0xFFE8F5E9)
-                                : const Color(0xFFE3F2FD),
+                            color: const Color(0xFFE8F5E9),
                             borderRadius:
                             BorderRadius.circular(10),
                           ),
@@ -1168,7 +1106,7 @@ class _EventCard extends StatelessWidget {
                                           ? Icons.check_circle_rounded
                                           : Icons.people_outline_rounded,
                                       size: 15,
-                                      color: isFull ? _green : const Color(0xFF1565C0)),
+                                      color: _green),
                                   const SizedBox(width: 6),
                                   Text(
                                     hasTarget
@@ -1176,7 +1114,7 @@ class _EventCard extends StatelessWidget {
                                         : '$count Volunteers Joined',
                                     style: TextStyle(
                                         fontSize: 12.5,
-                                        color: isFull ? _green : const Color(0xFF1565C0),
+                                        color: _green,
                                         fontWeight: FontWeight.w600),
                                   ),
                                 ],
@@ -1190,7 +1128,7 @@ class _EventCard extends StatelessWidget {
                                     minHeight: 6,
                                     backgroundColor: Colors.white,
                                     valueColor: AlwaysStoppedAnimation<Color>(
-                                        isFull ? _green : const Color(0xFF1565C0)),
+                                        _green),
                                   ),
                                 ),
                                 const SizedBox(height: 4),
@@ -1212,7 +1150,6 @@ class _EventCard extends StatelessWidget {
                   ),
                 ),
 
-                // Actions
                 Row(
                   children: [
                     Expanded(
@@ -1223,7 +1160,7 @@ class _EventCard extends StatelessWidget {
                         icon: isActive
                             ? Icons.pause_circle_outline
                             : Icons.play_circle_outline,
-                        color: _blue,
+                        color: _green,
                         onTap: () => controller.toggleActive(
                             docId, isActive),
                       ),
@@ -1278,9 +1215,6 @@ class _EventCard extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// ADD CAMPAIGN SHEET
-// ==========================================================================
 class _AddCampaignSheet extends StatelessWidget {
   final CampaignController controller;
   const _AddCampaignSheet({required this.controller});
@@ -1313,7 +1247,6 @@ class _AddCampaignSheet extends StatelessWidget {
             ),
             const SizedBox(height: 12),
 
-            // NEW — what kind of fundraising entry this is
             const Text(
               'Type',
               style: TextStyle(
@@ -1333,7 +1266,7 @@ class _AddCampaignSheet extends StatelessWidget {
                     controller.selectedCategory.value == opt['value'];
                 return GestureDetector(
                   onTap: () =>
-                      controller.selectCategory(opt['value']!), // CHANGED
+                      controller.selectCategory(opt['value']!),
                   child: Container(
                     padding: const EdgeInsets.symmetric(
                         horizontal: 14, vertical: 8),
@@ -1359,11 +1292,6 @@ class _AddCampaignSheet extends StatelessWidget {
             )),
             const SizedBox(height: 16),
 
-            // Photo / Banner Image
-            // CHANGED — branches by type. Sponsorship gets a circular
-            // "child photo" picker (matches how a sponsorship profile
-            // photo actually looks); Campaign/Project keep the exact
-            // rectangular banner picker they always had.
             Obx(() {
               final bool isSponsorship =
                   controller.selectedCategory.value == 'sponsorship';
@@ -1420,11 +1348,6 @@ class _AddCampaignSheet extends StatelessWidget {
             }),
             const SizedBox(height: 14),
 
-            // Fields — CHANGED — a genuinely separate field set for
-            // Sponsorship (Name / Age / About / fixed monthly amount)
-            // instead of relabeled Campaign fields. Campaign/Project
-            // keep the exact same fields, in the exact same order,
-            // as before.
             Obx(() {
               final bool isSponsorship =
                   controller.selectedCategory.value == 'sponsorship';
@@ -1555,14 +1478,11 @@ class _AddCampaignSheet extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// ADD EVENT SHEET
-// ==========================================================================
 class _AddEventSheet extends StatelessWidget {
   final EventController controller;
   const _AddEventSheet({required this.controller});
 
-  static const Color _blue = Color(0xFF1565C0);
+  static const Color _green = Color(0xFF1B6B3A);
 
   @override
   Widget build(BuildContext context) {
@@ -1590,7 +1510,6 @@ class _AddEventSheet extends StatelessWidget {
             ),
             const SizedBox(height: 16),
 
-            // Image
             Obx(() => GestureDetector(
               onTap: controller.pickImage,
               child: Container(
@@ -1598,12 +1517,12 @@ class _AddEventSheet extends StatelessWidget {
                 width: double.infinity,
                 decoration: BoxDecoration(
                   color:
-                  const Color(0xFFE3F2FD),
+                  const Color(0xFFE8F5E9),
                   borderRadius:
                   BorderRadius.circular(14),
                   border: Border.all(
                       color:
-                      _blue.withOpacity(0.3)),
+                      _green.withOpacity(0.3)),
                 ),
                 child: controller
                     .selectedImage.value !=
@@ -1625,12 +1544,12 @@ class _AddEventSheet extends StatelessWidget {
                         Icons
                             .add_photo_alternate_outlined,
                         size: 30,
-                        color: _blue),
+                        color: _green),
                     SizedBox(height: 6),
                     Text(
                         'Add Event Banner',
                         style: TextStyle(
-                            color: _blue,
+                            color: _green,
                             fontSize: 12)),
                   ],
                 ),
@@ -1661,9 +1580,6 @@ class _AddEventSheet extends StatelessWidget {
               Icons.location_on_outlined,
             ),
             const SizedBox(height: 10),
-            // NEW — lets Admin flag how many volunteers this event
-            // needs, so volunteers see "X of Y joined" and Admin can
-            // tell at a glance whether an event is fully staffed.
             _FormField2(
               controller: controller.volunteersNeededController,
               label: 'Volunteers Needed (Optional)',
@@ -1716,7 +1632,7 @@ class _AddEventSheet extends StatelessWidget {
 
             Obx(() => _SubmitBtn(
               label: 'Add Event',
-              color: _blue,
+              color: _green,
               isLoading:
               controller.isLoading.value,
               onTap: () async {
@@ -1734,9 +1650,6 @@ class _AddEventSheet extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// EMPTY STATES
-// ==========================================================================
 class _EmptyCampaigns extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
@@ -1797,12 +1710,6 @@ class _EmptyEvents extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// CHILD PHOTO PICKER (NEW) — circular picker for a Sponsor-a-Child entry.
-// A portrait child photo (matching the printed sponsorship flyers) reads
-// far better as a circular avatar than the rectangular campaign banner,
-// so this is a distinct widget rather than reusing the banner picker.
-// ==========================================================================
 class _ChildPhotoPicker extends StatelessWidget {
   final CampaignController controller;
   const _ChildPhotoPicker({required this.controller});
@@ -1843,14 +1750,6 @@ class _ChildPhotoPicker extends StatelessWidget {
   }
 }
 
-// ==========================================================================
-// SPONSORSHIP FIELDS (NEW) — genuinely separate form for a Sponsor-a-Child
-// entry: Name / Age / About the Child, plus a fixed (non-editable) monthly
-// amount summary. Deliberately has NO end date and NO "needs" checklist —
-// a child's sponsorship is an open-ended program, not a time-bound drive,
-// and the 6 support categories are fixed program policy, not a per-entry
-// checklist (see lib/models/sponsorship_categories.dart).
-// ==========================================================================
 class _SponsorshipFields extends StatelessWidget {
   final CampaignController controller;
   const _SponsorshipFields({required this.controller});
@@ -1917,10 +1816,6 @@ class _SponsorshipFields extends StatelessWidget {
   }
 }
 
-
-// ==========================================================================
-// SHARED SMALL WIDGETS
-// ==========================================================================
 class _Handle extends StatelessWidget {
   @override
   Widget build(BuildContext context) {

@@ -3,7 +3,8 @@ import 'package:firebase_messaging/firebase_messaging.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
-import 'package:get_storage/get_storage.dart'; // NEW
+import 'package:get_storage/get_storage.dart';
+
 import 'services/fcm_service.dart';
 import 'screens/admin/screens/utilization_detail_screen.dart';
 import 'screens/admin/screens/create_utilization_screen.dart';
@@ -33,9 +34,16 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 import 'screens/auth/login_screen_web.dart';
 
 @pragma('vm:entry-point')
-Future<void> _firebaseMessagingBackgroundHandler(RemoteMessage message) async {
-  await Firebase.initializeApp(options: DefaultFirebaseOptions.currentPlatform);
-  print('Background message: ${message.notification?.title}');
+Future<void> _firebaseMessagingBackgroundHandler(
+    RemoteMessage message,
+    ) async {
+  await Firebase.initializeApp(
+    options: DefaultFirebaseOptions.currentPlatform,
+  );
+
+  print(
+    'Background message: ${message.notification?.title}',
+  );
 }
 
 void main() async {
@@ -51,7 +59,9 @@ void main() async {
     options: DefaultFirebaseOptions.currentPlatform,
   );
 
-  FirebaseMessaging.onBackgroundMessage(_firebaseMessagingBackgroundHandler);
+  FirebaseMessaging.onBackgroundMessage(
+    _firebaseMessagingBackgroundHandler,
+  );
 
   await FirebaseMessaging.instance.requestPermission(
     alert: true,
@@ -61,7 +71,6 @@ void main() async {
 
   await FcmService().initialize();
 
-
   runApp(const DonateHubApp());
 }
 
@@ -70,29 +79,72 @@ class DonateHubApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-
-    return Obx(() => GetMaterialApp(
+    return GetMaterialApp(
       title: 'DonateHub',
       debugShowCheckedModeBanner: false,
       initialBinding: InitialBinding(),
       initialRoute: '/',
       getPages: [
-        GetPage(name: '/', page: () => const SplashScreen()),
-        GetPage(name: '/signup', page: () => const SignupScreen()),
-        GetPage(name: '/donate_items', page: () => const CategorySelectionScreen()),
-        GetPage(name: '/donate_funds', page: () => const DonateFundsScreen()),
-        GetPage(name: '/admin_dashboard', page: () => const AdminDashboard()),
-        GetPage(name: '/admin_profile', page: () => const AdminProfileScreen()),
-        GetPage(name: '/utilization_detail', page: () => UtilizationDetailScreen(data: {})),
-        GetPage(name: '/create_utilization', page: () => CreateUtilizationScreen()),
-        GetPage(name: '/donor_impact', page: () => const DonorImpactScreen()),
-        GetPage(name: '/donor_dashboard', page: () => const DonorDashboard()),
+        GetPage(
+          name: '/',
+          page: () => const SplashScreen(),
+        ),
+
+        GetPage(
+          name: '/signup',
+          page: () => const SignupScreen(),
+        ),
+
+        GetPage(
+          name: '/donate_items',
+          page: () => const CategorySelectionScreen(),
+        ),
+
+        GetPage(
+          name: '/donate_funds',
+          page: () => const DonateFundsScreen(),
+        ),
+
+        GetPage(
+          name: '/admin_dashboard',
+          page: () => const AdminDashboard(),
+        ),
+
+        GetPage(
+          name: '/admin_profile',
+          page: () => const AdminProfileScreen(),
+        ),
+
+        GetPage(
+          name: '/utilization_detail',
+          page: () => UtilizationDetailScreen(data: {}),
+        ),
+
+        GetPage(
+          name: '/create_utilization',
+          page: () => CreateUtilizationScreen(),
+        ),
+
+        GetPage(
+          name: '/donor_impact',
+          page: () => const DonorImpactScreen(),
+        ),
+
+        GetPage(
+          name: '/donor_dashboard',
+          page: () => const DonorDashboard(),
+        ),
+
         GetPage(
           name: '/donation_detail',
           page: () {
             final args = Get.arguments;
+
             final Map<String, dynamic> argMap =
-            args is Map<String, dynamic> ? args : <String, dynamic>{};
+            args is Map<String, dynamic>
+                ? args
+                : <String, dynamic>{};
+
             return DonationDetailScreen(
               docId: (argMap['docId'] ?? '').toString(),
               data: (argMap['data'] is Map<String, dynamic>)
@@ -101,14 +153,45 @@ class DonateHubApp extends StatelessWidget {
             );
           },
         ),
-        GetPage(name: '/manager_dashboard', page: () => const ManagerDashboard()),
-        GetPage(name: '/volunteer_form', page: () => const VolunteerRegistrationFormScreen()),
-        GetPage(name: '/verification_status', page: () => const VerificationStatusScreen()),
-        GetPage(name: '/volunteer_dashboard', page: () => const VolunteerDashboard()),
-        GetPage(name: '/admin_dashboard_web', page: () => const AdminWebDashboard()),
-        GetPage(name: '/manager_dashboard_web', page: () => const ManagerWebDashboard()),
-        GetPage(name: '/login', page: () => kIsWeb ? const LoginScreenWeb() : const LoginScreen()),
+
+        GetPage(
+          name: '/manager_dashboard',
+          page: () => const ManagerDashboard(),
+        ),
+
+        GetPage(
+          name: '/volunteer_form',
+          page: () => const VolunteerRegistrationFormScreen(),
+        ),
+
+        GetPage(
+          name: '/verification_status',
+          page: () => const VerificationStatusScreen(),
+        ),
+
+        GetPage(
+          name: '/volunteer_dashboard',
+          page: () => const VolunteerDashboard(),
+        ),
+
+        GetPage(
+          name: '/admin_dashboard_web',
+          page: () => const AdminWebDashboard(),
+        ),
+
+        GetPage(
+          name: '/manager_dashboard_web',
+          page: () => const ManagerWebDashboard(),
+        ),
+
+        GetPage(
+          name: '/login',
+          page: () =>
+          kIsWeb
+              ? const LoginScreenWeb()
+              : const LoginScreen(),
+        ),
       ],
-    ));
+    );
   }
 }
